@@ -38,10 +38,12 @@
 
     <script>
         // インデックス0番を「透明」として扱います
-        const colors = [
-            'transparent', '#ffffff','#ff4d4d','#4dff4d','#4d4dff','#ffff4d','#ff4dff','#4dffff',
-            '#888888','#800000','#808000','#008000','#800080','#008080','#000080','#ffa500'
-        ];
+const PALETTE = [
+    'transparent', '#ffffff', '#888888', '#222222', 
+    '#ff4b2b', '#33cc33', '#0077ff', '#ffee00', 
+    '#ff99cc', '#66ffff', '#ccff33', '#8b4513', 
+    '#b22222', '#000080', '#ff8c00', '#9933ff'
+];
         let selectedIdx = 1; // 最初は白を選択
         let isDrawing = false;
 
