@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Editor (Transparency Support)</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; padding-top: 20px; }
+        /* 透明を表現する市松模様 */
+        .grid-container {
+            background-image: linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            border: 2px solid #444;
+        }
+        #grid { display: grid; grid-template-columns: repeat(16, 22px); gap: 1px; background: rgba(255,255,255,0.1); }
+        .cell { width: 22px; height: 22px; cursor: crosshair; }
+        .palette { margin: 20px 0; display: flex; gap: 6px; flex-wrap: wrap; width: 380px; justify-content: center; }
+        .p-color { width: 35px; height: 35px; cursor: pointer; border: 2px solid #555; border-radius: 6px; position: relative; }
+        .p-color.selected { border-color: #fff; transform: scale(1.1); box-shadow: 0 0 10px #fff; }
+        /* 透明ボタン用のバツ印 */
+        .p-transparent::after { content: "×"; color: red; font-size: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .controls { margin-top: 10px; display: flex; gap: 10px; }
+        button { padding: 12px 20px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; background: #444; color: white; }
+        button:hover { background: #666; }
+        textarea { width: 360px; height: 50px; margin-top: 15px; background: #000; color: #0f0; border: 1px solid #333; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="grid-container">
+        <div id="grid"></div>
+    </div>
+    <div class="palette" id="palette"></div>
+    <div class="controls">
+        <button onclick="clearGrid()">全消去</button>
+        <button style="background: #2a52be;" onclick="generateCode()">コード生成 & コピー</button>
+    </div>
+    <textarea id="output" readonly></textarea>
+
+    <script>
+        // インデックス0番を「透明」として扱います
+        const colors = [
+            'transparent', '#ffffff','#ff4d4d','#4dff4d','#4d4dff','#ffff4d','#ff4dff','#4dffff',
+            '#888888','#800000','#808000','#008000','#800080','#008080','#000080','#ffa500'
+        ];
+        let selectedIdx = 1; // 最初は白を選択
+        let isDrawing = false;
+
+        const paletteDiv = document.getElementById('palette');
+        colors.forEach((c, i) => {
+            const btn = document.createElement('div');
+            btn.className = 'p-color' + (i === selectedIdx ? ' selected' : '');
+            if (i === 0) btn.classList.add('p-transparent');
+            btn.style.backgroundColor = c;
+            btn.onclick = () => {
+                document.querySelector('.p-color.selected').classList.remove('selected');
+                btn.classList.add('selected');
+                selectedIdx = i;
+            };
+            paletteDiv.appendChild(btn);
+        });
+
+        const grid = document.getElementById('grid');
+        for (let i = 0; i < 256; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.idx = "0"; // 初期状態は透明
+            cell.onmousedown = (e) => { isDrawing = true; paint(cell); e.preventDefault(); };
+            cell.onmouseenter = () => { if (isDrawing) paint(cell); };
+            grid.appendChild(cell);
+        }
+        window.onmouseup = () => isDrawing = false;
+
+        function paint(cell) {
+            cell.style.backgroundColor = colors[selectedIdx];
+            cell.dataset.idx = selectedIdx;
+        }
+
+        function clearGrid() {
+            if(confirm("すべて透明（クリア）にしますか？")) {
+                document.querySelectorAll('.cell').forEach(c => {
+                    c.style.backgroundColor = 'transparent';
+                    c.dataset.idx = "0";
+                });
+            }
+        }
+
+        function generateCode() {
+            const cells = Array.from(document.querySelectorAll('.cell')).map(c => parseInt(c.dataset.idx));
+            let compressed = "";
+            for (let i = 0; i < cells.length; i++) {
+                let count = 1;
+                while (i + 1 < cells.length && cells[i] === cells[i+1] && count < 15) {
+                    count++;
+                    i++;
+                }
+                compressed += cells[i].toString(16) + count.toString(16);
+            }
+            const finalCode = "!draw " + compressed;
+            document.getElementById('output').value = finalCode;
+            navigator.clipboard.writeText(finalCode).then(() => alert("コピーしました！"));
+        }
+    </script>
+</body>
+</html>
