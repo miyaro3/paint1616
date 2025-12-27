@@ -2,50 +2,60 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Pixel Editor (Transparency Support)</title>
+    <title>Pixel Editor (Fill Support)</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; padding-top: 20px; }
-        /* 透明を表現する市松模様 */
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; padding: 20px; }
         .grid-container {
             background-image: linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-            border: 2px solid #444;
+            background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            border: 2px solid #444; margin-bottom: 20px;
         }
         #grid { display: grid; grid-template-columns: repeat(16, 22px); gap: 1px; background: rgba(255,255,255,0.1); }
         .cell { width: 22px; height: 22px; cursor: crosshair; }
-        .palette { margin: 20px 0; display: flex; gap: 6px; flex-wrap: wrap; width: 380px; justify-content: center; }
+        .palette { display: flex; gap: 6px; flex-wrap: wrap; width: 380px; justify-content: center; margin-bottom: 20px; }
         .p-color { width: 35px; height: 35px; cursor: pointer; border: 2px solid #555; border-radius: 6px; position: relative; }
-        .p-color.selected { border-color: #fff; transform: scale(1.1); box-shadow: 0 0 10px #fff; }
-        /* 透明ボタン用のバツ印 */
+        .p-color.selected { border-color: #fff; transform: scale(1.1); box-shadow: 0 0 10px #fff; z-index: 10; }
         .p-transparent::after { content: "×"; color: red; font-size: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-        .controls { margin-top: 10px; display: flex; gap: 10px; }
-        button { padding: 12px 20px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; background: #444; color: white; }
-        button:hover { background: #666; }
-        textarea { width: 360px; height: 50px; margin-top: 15px; background: #000; color: #0f0; border: 1px solid #333; font-family: monospace; }
+        
+        .controls { display: flex; gap: 10px; margin-bottom: 10px; }
+        .tool-box { display: flex; gap: 10px; margin-bottom: 15px; background: #333; padding: 10px; border-radius: 8px; }
+        .tool-btn { padding: 8px 15px; cursor: pointer; border: 2px solid #555; background: #444; color: white; border-radius: 4px; font-weight: bold; }
+        .tool-btn.active { border-color: #fff; background: #2a52be; }
+
+        button { padding: 12px 20px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; color: white; transition: 0.2s; }
+        .btn-clear { background: #444; }
+        .btn-gen { background: #2a52be; }
+        textarea { width: 360px; height: 60px; margin-top: 15px; background: #000; color: #0f0; border: 1px solid #333; font-family: monospace; padding: 10px; }
     </style>
 </head>
 <body>
-    <div class="grid-container">
-        <div id="grid"></div>
+    <h2>Pixel Art Editor</h2>
+
+    <div class="tool-box">
+        <div id="btn-pen" class="tool-btn active" onclick="setTool('pen')">鉛筆 (Pen)</div>
+        <div id="btn-fill" class="tool-btn" onclick="setTool('fill')">塗りつぶし (Fill)</div>
     </div>
+
+    <div class="grid-container"><div id="grid"></div></div>
     <div class="palette" id="palette"></div>
+    
     <div class="controls">
-        <button onclick="clearGrid()">全消去</button>
-        <button style="background: #2a52be;" onclick="generateCode()">コード生成 & コピー</button>
+        <button class="btn-clear" onclick="clearGrid()">全消去</button>
+        <button class="btn-gen" onclick="generateCode()">コード生成 & コピー</button>
     </div>
-    <textarea id="output" readonly></textarea>
+    <textarea id="output" readonly placeholder="ここにコマンドが生成されます"></textarea>
 
     <script>
-        // インデックス0番を「透明」として扱います
-        const colors = [
-'transparent', '#ffffff', '#888888', '#222222', 
-    '#ff4b2b', '#33cc33', '#0077ff', '#ffee00', 
-    '#ff99cc', '#66ffff', '#ccff33', '#8b4513', 
-    '#b22222', '#000080', '#ff8c00', '#9933ff'
-        ];
-        let selectedIdx = 1; // 最初は白を選択
+        const colors = ['transparent','#ffffff','#888888','#222222','#ff4b2b','#33cc33','#0077ff','#ffee00','#ff99cc','#66ffff','#ccff33','#8b4513','#b22222','#000080','#ff8c00','#9933ff'];
+        let selectedIdx = 1;
         let isDrawing = false;
+        let currentTool = 'pen'; // 'pen' or 'fill'
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + tool).classList.add('active');
+        }
 
         const paletteDiv = document.getElementById('palette');
         colors.forEach((c, i) => {
@@ -62,13 +72,24 @@
         });
 
         const grid = document.getElementById('grid');
+        const cells = [];
         for (let i = 0; i < 256; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            cell.dataset.idx = "0"; // 初期状態は透明
-            cell.onmousedown = (e) => { isDrawing = true; paint(cell); e.preventDefault(); };
-            cell.onmouseenter = () => { if (isDrawing) paint(cell); };
+            cell.dataset.pos = i;
+            cell.dataset.idx = "0";
+            cell.onmousedown = (e) => {
+                if (currentTool === 'pen') {
+                    isDrawing = true;
+                    paint(cell);
+                } else {
+                    fill(parseInt(cell.dataset.pos));
+                }
+                e.preventDefault();
+            };
+            cell.onmouseenter = () => { if (isDrawing && currentTool === 'pen') paint(cell); };
             grid.appendChild(cell);
+            cells.push(cell);
         }
         window.onmouseup = () => isDrawing = false;
 
@@ -77,9 +98,38 @@
             cell.dataset.idx = selectedIdx;
         }
 
+        // 塗りつぶし（シードフィル）アルゴリズム
+        function fill(pos) {
+            const targetIdx = cells[pos].dataset.idx;
+            if (targetIdx == selectedIdx) return;
+
+            const queue = [pos];
+            const processed = new Set();
+
+            while (queue.length > 0) {
+                const p = queue.shift();
+                if (processed.has(p)) continue;
+                if (cells[p].dataset.idx !== targetIdx) continue;
+
+                // 塗る
+                cells[p].style.backgroundColor = colors[selectedIdx];
+                cells[p].dataset.idx = selectedIdx;
+                processed.add(p);
+
+                // 上下左右の座標計算
+                const x = p % 16;
+                const y = Math.floor(p / 16);
+
+                if (x > 0) queue.push(p - 1);      // 左
+                if (x < 15) queue.push(p + 1);     // 右
+                if (y > 0) queue.push(p - 16);     // 上
+                if (y < 15) queue.push(p + 16);    // 下
+            }
+        }
+
         function clearGrid() {
-            if(confirm("すべて透明（クリア）にしますか？")) {
-                document.querySelectorAll('.cell').forEach(c => {
+            if(confirm("すべて透明にしますか？")) {
+                cells.forEach(c => {
                     c.style.backgroundColor = 'transparent';
                     c.dataset.idx = "0";
                 });
@@ -87,15 +137,15 @@
         }
 
         function generateCode() {
-            const cells = Array.from(document.querySelectorAll('.cell')).map(c => parseInt(c.dataset.idx));
+            const data = cells.map(c => parseInt(c.dataset.idx));
             let compressed = "";
-            for (let i = 0; i < cells.length; i++) {
+            for (let i = 0; i < data.length; i++) {
                 let count = 1;
-                while (i + 1 < cells.length && cells[i] === cells[i+1] && count < 15) {
+                while (i + 1 < data.length && data[i] === data[i+1] && count < 15) {
                     count++;
                     i++;
                 }
-                compressed += cells[i].toString(16) + count.toString(16);
+                compressed += data[i].toString(16) + count.toString(16);
             }
             const finalCode = "!draw " + compressed;
             document.getElementById('output').value = finalCode;
