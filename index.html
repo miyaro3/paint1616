@@ -2,27 +2,53 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Pixel Editor (Fill Support)</title>
+    <title>Pixel Editor (Fixed Size)</title>
     <style>
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; padding: 20px; }
+        
+        /* 16 * 22px = 352px 固定 */
         .grid-container {
+            width: 352px;
+            height: 352px;
             background-image: linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%);
             background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
             border: 2px solid #444; margin-bottom: 20px;
+            position: relative;
         }
-        #grid { display: grid; grid-template-columns: repeat(16, 22px); gap: 1px; background: rgba(255,255,255,0.1); }
-        .cell { width: 22px; height: 22px; cursor: crosshair; }
+
+        #grid { 
+            display: grid; 
+            grid-template-columns: repeat(16, 22px); 
+            grid-template-rows: repeat(16, 22px);
+            width: 352px; 
+            height: 352px;
+        }
+
+        .cell { 
+            width: 22px; 
+            height: 22px; 
+            cursor: crosshair; 
+            box-sizing: border-box; /* 枠線を内側に含める */
+            border: 0.5px solid rgba(255, 255, 255, 0.15); /* 初期ON: 薄いグリッド線 */
+        }
+
+        /* グリッドOFF時のスタイル */
+        #grid.no-grid .cell {
+            border: none;
+        }
+        
         .palette { display: flex; gap: 6px; flex-wrap: wrap; width: 380px; justify-content: center; margin-bottom: 20px; }
         .p-color { width: 35px; height: 35px; cursor: pointer; border: 2px solid #555; border-radius: 6px; position: relative; }
         .p-color.selected { border-color: #fff; transform: scale(1.1); box-shadow: 0 0 10px #fff; z-index: 10; }
         .p-transparent::after { content: "×"; color: red; font-size: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         
-        .controls { display: flex; gap: 10px; margin-bottom: 10px; }
         .tool-box { display: flex; gap: 10px; margin-bottom: 15px; background: #333; padding: 10px; border-radius: 8px; }
-        .tool-btn { padding: 8px 15px; cursor: pointer; border: 2px solid #555; background: #444; color: white; border-radius: 4px; font-weight: bold; }
+        .tool-btn { padding: 8px 15px; cursor: pointer; border: 2px solid #555; background: #444; color: white; border-radius: 4px; font-weight: bold; font-size: 12px; }
         .tool-btn.active { border-color: #fff; background: #2a52be; }
+        .shortcut-info { margin-bottom: 15px; color: #aaa; font-size: 13px; text-align: center; line-height: 1.6; }
 
-        button { padding: 12px 20px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; color: white; transition: 0.2s; }
+        .controls { display: flex; gap: 10px; margin-bottom: 10px; }
+        button { padding: 12px 20px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; color: white; }
         .btn-clear { background: #444; }
         .btn-gen { background: #2a52be; }
         textarea { width: 360px; height: 60px; margin-top: 15px; background: #000; color: #0f0; border: 1px solid #333; font-family: monospace; padding: 10px; }
@@ -31,9 +57,16 @@
 <body>
     <h2>Pixel Art Editor</h2>
 
+    <div class="shortcut-info">
+        [R]:ペン [F]:塗りつぶし [Q]:スポイト [Z]:透明 [A]:前回の色 [I]:グリッドON/OFF<br>
+        [1-9]:パレットの色を選択
+    </div>
+
     <div class="tool-box">
-        <div id="btn-pen" class="tool-btn active" onclick="setTool('pen')">鉛筆 (Pen)</div>
-        <div id="btn-fill" class="tool-btn" onclick="setTool('fill')">塗りつぶし (Fill)</div>
+        <div id="btn-pen" class="tool-btn active" onclick="setTool('pen')">鉛筆 [R]</div>
+        <div id="btn-fill" class="tool-btn" onclick="setTool('fill')">塗りつぶし [F]</div>
+        <div id="btn-picker" class="tool-btn" onclick="setTool('picker')">スポイト [Q]</div>
+        <div id="btn-grid" class="tool-btn active" onclick="toggleGrid()">グリッド切替 [I]</div>
     </div>
 
     <div class="grid-container"><div id="grid"></div></div>
@@ -48,13 +81,32 @@
     <script>
         const colors = ['transparent','#ffffff','#888888','#222222','#ff4b2b','#33cc33','#0077ff','#ffee00','#ff99cc','#66ffff','#ccff33','#8b4513','#b22222','#000080','#ff8c00','#9933ff'];
         let selectedIdx = 1;
+        let prevIdx = 1;
         let isDrawing = false;
-        let currentTool = 'pen'; // 'pen' or 'fill'
+        let currentTool = 'pen';
 
         function setTool(tool) {
             currentTool = tool;
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tool-btn').forEach(b => {
+                if(b.id !== 'btn-grid') b.classList.remove('active');
+            });
             document.getElementById('btn-' + tool).classList.add('active');
+        }
+
+        function toggleGrid() {
+            const gridEl = document.getElementById('grid');
+            gridEl.classList.toggle('no-grid');
+            const btn = document.getElementById('btn-grid');
+            btn.classList.toggle('active');
+        }
+
+        function selectColor(index) {
+            if (index < 0 || index >= colors.length) return;
+            if (index === selectedIdx) return;
+            prevIdx = selectedIdx;
+            selectedIdx = index;
+            document.querySelector('.p-color.selected').classList.remove('selected');
+            document.querySelectorAll('.p-color')[index].classList.add('selected');
         }
 
         const paletteDiv = document.getElementById('palette');
@@ -63,12 +115,19 @@
             btn.className = 'p-color' + (i === selectedIdx ? ' selected' : '');
             if (i === 0) btn.classList.add('p-transparent');
             btn.style.backgroundColor = c;
-            btn.onclick = () => {
-                document.querySelector('.p-color.selected').classList.remove('selected');
-                btn.classList.add('selected');
-                selectedIdx = i;
-            };
+            btn.onclick = () => selectColor(i);
             paletteDiv.appendChild(btn);
+        });
+
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'r') setTool('pen');
+            if (key === 'f') setTool('fill');
+            if (key === 'q') setTool('picker');
+            if (key === 'z') selectColor(0);
+            if (key === 'a') selectColor(prevIdx);
+            if (key === 'i') toggleGrid();
+            if (/[1-9]/.test(key)) selectColor(parseInt(key));
         });
 
         const grid = document.getElementById('grid');
@@ -79,11 +138,15 @@
             cell.dataset.pos = i;
             cell.dataset.idx = "0";
             cell.onmousedown = (e) => {
-                if (currentTool === 'pen') {
+                const pos = parseInt(cell.dataset.pos);
+                if (currentTool === 'picker') {
+                    selectColor(parseInt(cell.dataset.idx));
+                    setTool('pen');
+                } else if (currentTool === 'fill') {
+                    fill(pos);
+                } else {
                     isDrawing = true;
                     paint(cell);
-                } else {
-                    fill(parseInt(cell.dataset.pos));
                 }
                 e.preventDefault();
             };
@@ -98,32 +161,23 @@
             cell.dataset.idx = selectedIdx;
         }
 
-        // 塗りつぶし（シードフィル）アルゴリズム
         function fill(pos) {
             const targetIdx = cells[pos].dataset.idx;
             if (targetIdx == selectedIdx) return;
-
             const queue = [pos];
             const processed = new Set();
-
             while (queue.length > 0) {
                 const p = queue.shift();
                 if (processed.has(p)) continue;
                 if (cells[p].dataset.idx !== targetIdx) continue;
-
-                // 塗る
                 cells[p].style.backgroundColor = colors[selectedIdx];
                 cells[p].dataset.idx = selectedIdx;
                 processed.add(p);
-
-                // 上下左右の座標計算
-                const x = p % 16;
-                const y = Math.floor(p / 16);
-
-                if (x > 0) queue.push(p - 1);      // 左
-                if (x < 15) queue.push(p + 1);     // 右
-                if (y > 0) queue.push(p - 16);     // 上
-                if (y < 15) queue.push(p + 16);    // 下
+                const x = p % 16, y = Math.floor(p / 16);
+                if (x > 0) queue.push(p - 1);
+                if (x < 15) queue.push(p + 1);
+                if (y > 0) queue.push(p - 16);
+                if (y < 15) queue.push(p + 16);
             }
         }
 
