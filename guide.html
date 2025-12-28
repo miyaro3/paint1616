@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Pixel Art Overlay - Setup Guide</title>
+    <title>miyaro paint - Setup Guide</title>
     <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #e0e0e0; background: #121212; margin: 0; padding: 40px 20px; }
         .container { max-width: 900px; margin: 0 auto; background: #1e1e1e; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
@@ -32,57 +32,57 @@
 <body>
 
 <div class="container">
-    <h1>Pixel Art Overlay Setup Guide</h1>
+    <h1>miyaro paint Setup Guide</h1>
 
     <div class="setup-section">
-        <h3>1. あなたのTwitchチャンネル名を入力</h3>
-        <p>入力すると、専用の「表示用URL」が下に自動生成されます。</p>
-        <input type="text" id="channelInput" placeholder="例: your_channel_id" oninput="generateURLs()">
+        <h3>1. TwitchチャンネルIDを入力</h3>
+        <p>あなたのTwitch IDを入力すると、以下のURLが自動更新されます。</p>
+        <input type="text" id="channelInput" placeholder="例: your_id" oninput="generateURLs()">
     </div>
 
-    <h2>URLの取得</h2>
+    <h2>連携用URL</h2>
     
-    <p><strong>【配信用】表示用オーバーレイ URL</strong><br><small>OBSの「ブラウザソース」に追加してください。</small></p>
+    <p><strong>【OBS用】表示オーバーレイ URL</strong><br><small>OBSの「ブラウザソース」に追加してください。左から右へ流れます。</small></p>
     <div class="url-box">
-        <span class="url-text" id="showURL">https://miyaro3.github.io/paint1616/show.html?channel=</span>
+        <span class="url-text" id="showURL">https://your-username.github.io/miyaro-paint/show.html?channel=</span>
         <button class="btn-copy" onclick="copyText('showURL')">コピー</button>
     </div>
 
-    <p><strong>【リスナー用】描画エディタ URL</strong><br><small>配信詳細やチャットボット（!paint 等）に登録してリスナーに共有してください。</small></p>
+    <p><strong>【リスナー用】描画用エディタ URL</strong><br><small>配信概要欄や、チャットボット（!paint 等）に登録してください。</small></p>
     <div class="url-box">
-        <span class="url-text" id="editURL">https://miyaro3.github.io/paint1616/paint.html</span>
+        <span class="url-text" id="editURL">https://your-username.github.io/miyaro-paint/paint.html</span>
         <button class="btn-copy" onclick="copyText('editURL')">コピー</button>
     </div>
 
     <h2>リスナー向けコマンド</h2>
-    <p>描いたドット絵は画面をループして流れ続けます。以下のコマンドでアクションを起こせます。</p>
+    <p>描画されたドット絵は画面を「左から右」へループ移動します。強調表示は5秒間継続します。</p>
     <table class="command-table">
         <tr><th>コマンド</th><th>内容</th></tr>
-        <tr><td><code>!draw [コード]</code></td><td>生成したコードでドット絵を描画します。（透明色は透過します）</td></tr>
-        <tr><td><code>!shake</code></td><td>5秒間、絵を左右に揺らします。<div class="timer-info">※5秒後に通常に戻ります</div></td></tr>
-        <tr><td><code>!jump</code></td><td>5秒間、絵をぴょんぴょん跳ねさせます。<div class="timer-info">※5秒後に通常に戻ります</div></td></tr>
-        <tr><td><code>!dance</code></td><td>5秒間、絵を楽しくダンスさせます。<div class="timer-info">※5秒後に通常に戻ります</div></td></tr>
-        <tr><td><code>!sparkle</code></td><td>5秒間、キラキラのエフェクトをまとわせます。<div class="timer-info">※5秒後に通常に戻ります</div></td></tr>
-        <tr><td><code>!bomb</code></td><td>5秒間、爆発するように点滅・拡大します。<div class="timer-info">※5秒後に通常に戻ります</div></td></tr>
+        <tr><td><code>!draw [コード]</code></td><td>ドット絵を生成します。（透明部分は完全に透過します）</td></tr>
+        <tr><td><code>!shake</code></td><td>5秒間、絵をガタガタ揺らします。</td></tr>
+        <tr><td><code>!jump</code></td><td>5秒間、絵をぴょんぴょん跳ねさせます。</td></tr>
+        <tr><td><code>!dance</code></td><td>5秒間、絵を楽しくダンスさせます。</td></tr>
+        <tr><td><code>!sparkle</code></td><td>5秒間、キラキラエフェクトを表示します。</td></tr>
+        <tr><td><code>!bomb</code></td><td>5秒間、爆発するように激しく点滅させます。</td></tr>
     </table>
 
-    <h2>管理用コマンド（配信者・モデレーター専用）</h2>
+    <h2>管理コマンド（配信者・モデレーター専用）</h2>
     <table class="command-table">
         <tr><th>コマンド</th><th>内容</th></tr>
-        <tr><td><code>!picclear [ユーザー名]</code></td><td>指定したユーザーの絵を画面からすべて消去します。</td></tr>
-        <tr><td><code>!picban [ユーザー名]</code></td><td>指定したユーザーの絵を消し、以降の投稿を無視します。</td></tr>
-        <tr><td><code>!speed [数値]</code></td><td>流れる速度を変更します（デフォルト: 20）。数値が小さいほど速くなります。</td></tr>
+        <tr><td><code>!picclear [ID]</code></td><td>指定したユーザーの絵をすべて消去します。</td></tr>
+        <tr><td><code>!picban [ID]</code></td><td>指定したユーザーの絵を消し、以降の投稿を禁止します。</td></tr>
+        <tr><td><code>!speed [数値]</code></td><td>流れる速度を変更します（初期値: 20）。小さいほど速くなります。</td></tr>
     </table>
 
     <h2>OBS 推奨設定</h2>
     <div class="obs-list">
         <ul>
-            <li><strong>ソースタイプ:</strong> ブラウザソース</li>
-            <li><strong>URL:</strong> 上記で生成した「表示用URL」</li>
-            <li><strong>幅(Width):</strong> 1920 (配信解像度に合わせてください)</li>
-            <li><strong>高さ(Height):</strong> 200 (画面上部に流す場合の目安)</li>
+            <li><strong>ソース:</strong> ブラウザソース</li>
+            <li><strong>URL:</strong> 上記の表示用URL</li>
+            <li><strong>幅 (Width):</strong> <code style="color:white; background:#555;">800</code></li>
+            <li><strong>高さ (Height):</strong> <code style="color:white; background:#555;">200</code></li>
             <li><strong>表示されていない時にソースをシャットダウン:</strong> <strong style="color:#ff4444;">チェックを外す</strong>
-                <div class="note">※チェックを入れると、シーン切り替え時にBANリストや設定速度がリセットされます。</div>
+                <div class="note">※チェックを入れると、BANリストや速度設定がリセットされます。</div>
             </li>
         </ul>
     </div>
@@ -90,9 +90,11 @@
 
 <script>
     function generateURLs() {
-        const channel = document.getElementById('channelInput').value.trim() || '[your_channel_id]';
-        document.getElementById('showURL').innerText = `https://miyaro3.github.io/paint1616/show.html?channel=${channel}`;
-        // ※実際にご自身のURL構造に合わせて書き換えてください
+        const channel = document.getElementById('channelInput').value.trim() || '[your_id]';
+        // GitHub PagesのURL形式に合わせて書き換えてください
+        const baseUrl = window.location.href.split('guide.html')[0];
+        document.getElementById('showURL').innerText = `${baseUrl}show.html?channel=${channel}`;
+        document.getElementById('editURL').innerText = `${baseUrl}paint.html`;
     }
 
     function copyText(id) {
@@ -100,7 +102,7 @@
         navigator.clipboard.writeText(text).then(() => {
             const btn = event.target;
             const originalText = btn.innerText;
-            btn.innerText = "コピー完了";
+            btn.innerText = "コピーしました";
             btn.style.background = "#00ff7f";
             setTimeout(() => {
                 btn.innerText = originalText;
