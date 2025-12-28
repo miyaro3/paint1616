@@ -1,218 +1,141 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Twitch Pixel Banner</title>
+    <title>Pixel Art Overlay</title>
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background: transparent; 
-            width: 900px;  /* 指定の横幅 */
-            height: 100px; /* 指定の高さ */
-        }
-        #bg-layer { position: fixed; width: 100%; height: 100%; z-index: -1; }
+        body { margin: 0; overflow: hidden; background: transparent; font-family: 'Arial', sans-serif; }
+        #stage { width: 100vw; height: 100vh; position: relative; }
         
-        /* 絵と名前のセット（サイズを80px程度に縮小） */
-        .art-container { 
-            position: absolute; 
-            width: 80px; 
-            left: -80px; 
-            will-change: left; 
-            transition: opacity 0.5s, transform 0.5s; 
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        .art-container {
+            position: absolute; right: -150px; top: 10px;
+            display: flex; flex-direction: column; align-items: center;
+            animation: move linear forwards;
         }
-        
-        /* 名前ラベル（小さく調整） */
+
+        .pixel-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 5px);
+            grid-template-rows: repeat(16, 5px);
+            width: 80px; height: 80px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px; overflow: hidden;
+        }
+
+        .px { width: 5px; height: 5px; }
+
         .user-name {
-            width: 100px; text-align: center; font-family: sans-serif; font-weight: bold; font-size: 11px;
-            color: white; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
-            margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            margin-top: 4px; font-size: 12px; font-weight: bold; color: white;
+            text-shadow: 1px 1px 2px black, -1px -1px 2px black;
+            white-space: nowrap;
         }
-        
-        /* ドット絵本体（16x16の1つを5pxにして 16*5=80px） */
-        .pixel-art { display: grid; grid-template-columns: repeat(16, 5px); width: 80px; height: 80px; }
-        .pixel { width: 5px; height: 5px; }
 
-        @keyframes sparkle-anim {
-            0% { filter: brightness(1); transform: scale(1); }
-            50% { filter: brightness(1.8); transform: scale(1.1); }
-            100% { filter: brightness(1); transform: scale(1); }
-        }
-        .sparkle { animation: sparkle-anim 0.5s infinite; }
-        .explode { transform: scale(2); opacity: 0; filter: blur(5px); pointer-events: none; }
-
-        #speed-notify {
-            position: fixed; bottom: 5px; right: 5px; color: #0f0; font-family: monospace;
-            background: rgba(0,0,0,0.7); padding: 2px 5px; border-radius: 3px;
-            opacity: 0; transition: opacity 0.5s; font-size: 10px;
+        @keyframes move {
+            from { transform: translateX(0); }
+            to { transform: translateX(-120vw); }
         }
     </style>
 </head>
 <body>
-    <div id="bg-layer"></div>
-    <div id="wrapper"></div>
-    <div id="speed-notify"></div>
+    <div id="stage"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/comfy.js@latest/dist/comfy.min.js"></script>
     <script>
-// ==========================================
-// 【設定エリア】
-// ==========================================
-// URLから「channel」パラメータを取得。指定がなければ空文字にする
-const urlParams = new URLSearchParams(window.location.search);
-const CHANNEL_NAME = urlParams.get('channel') || ''; 
+        // paint.htmlと完全に一致するパレット定義
+        const PALETTES = {
+            "0": ['transparent','#ffffff','#888888','#222222','#ff4b2b','#33cc33','#0077ff','#ffee00','#ff99cc','#66ffff','#ccff33','#8b4513','#b22222','#000080','#ff8c00','#000000'],
+            "1": ['transparent','#fff5eb','#fde5d2','#f9d4b8','#f3b08c','#e3906c','#c07254','#91553d','#ff66a3','#ff0066','#9900ff','#442211','#55ccff','#ffffff','#222222','#000000'],
+            "2": ['transparent','#ffffff','#f8f8f8','#e0e0e0','#cccccc','#b0b0b0','#999999','#808080','#666666','#505050','#404040','#303030','#202020','#101010','#050505','#000000'],
+            "3": ['transparent','#ff6b6b','#fa5252','#f03e3e','#e03131','#c92a2a','#ffa94d','#fd7e14','#f76707','#e8590c','#d9480f','#ffffff','#ffec99','#fab005','#222222','#000000'],
+            "4": ['transparent','#339af0','#228be6','#1c7ed6','#1971c2','#1864ab','#38d9a9','#20c997','#12b886','#0ca678','#099268','#ffffff','#a5d8ff','#111111','#222222','#000000'],
+            "5": ['transparent','#f8f8f8','#bcbcbc','#7c7c7c','#f8d878','#f8a000','#f83800','#d80000','#008800','#00a800','#0058f8','#3cbcfc','#0000bc','#6844fc','#ffffff','#000000'],
+            "6": ['transparent','#ffb7b2','#ffdac1','#e2f0cb','#b5ead7','#c7ceea','#ffc6ff','#9bf6ff','#a0c4ff','#bdb2ff','#fffffc','#ffffff','#333333','#aaaaaa','#222222','#000000'],
+            "7": ['transparent','#ff0000','#cc0000','#990000','#660000','#330000','#ff8888','#ffcccc','#ffffff','#eeeeee','#cccccc','#999999','#666666','#333333','#111111','#000000'],
+            "8": ['transparent','#00ff00','#ff00ff','#00ffff','#ffff00','#ff0000','#ffffff','#003300','#330033','#003333','#333300','#330000','#444444','#888888','#222222','#000000'],
+            "9": ['transparent','#2d5a27','#1e3f1a','#4a7c44','#6b8e23','#8fbc8f','#556b2f','#a2ad91','#deb887','#8b4513','#5d4037','#ffffff','#cccccc','#444444','#222222','#000000'],
+            "a": ['transparent','#0077be','#005b96','#03396c','#011f4b','#6497b1','#b3cde0','#009688','#4db6ac','#80cbc4','#ffffff','#dddddd','#aaaaaa','#333333','#111111','#000000'],
+            "b": ['transparent','#ff4500','#ff6347','#ff8c00','#ffa500','#ffd700','#2f4f4f','#708090','#191970','#000080','#483d8b','#ffffff','#aaaaaa','#333333','#111111','#000000'],
+            "c": ['transparent','#9bbc0f','#8bab0f','#306230','#0f380f','#ffffff','#dddddd','#bbbbbb','#999999','#777777','#555555','#333333','#111111','#050505','#222222','#000000'],
+            "d": ['transparent','#a63d33','#e0815e','#6b4a3e','#f2e8d5','#bfbd97','#8c9e5e','#5e6146','#3e4a3d','#2b3a2d','#1a201a','#ffffff','#cccccc','#888888','#222222','#000000'],
+            "e": ['transparent','#5d001e','#9a1750','#ee4c7c','#ff66aa','#cc3366','#990033','#ffcccc','#ff99cc','#ffffff','#eeeeee','#cccccc','#999999','#444444','#222222','#000000'],
+            "f": ['transparent','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffffff','#808080','#800000','#008000','#000080','#808000','#800080','#444444','#000000']
+        };
 
-let currentSpeed = 0.8;       // 横長なので少し速めがおすすめ
-const SPEED_STEP = 2;
-const BG_COLOR = 'transparent';
+        let moveSpeed = 20; // 秒（右から左までかかる時間）
 
+        // URLパラメータからチャンネル名を取得
+        const params = new URLSearchParams(window.location.search);
+        const channel = params.get('channel');
 
-        const ART_TOP = 5;            // 上からの位置
-        const MARGIN = 40;            // 絵と絵の隙間
-        const MAX_POOL_SIZE = 50;     
-        const PALETTE = ['transparent', '#ffffff', '#888888', '#222222', '#ff4b2b', '#33cc33', '#0077ff', '#ffee00', '#ff99cc', '#66ffff', '#ccff33', '#8b4513', '#b22222', '#000080', '#ff8c00', '#9933ff'];
-        // ==========================================
-
-        const wrapper = document.getElementById('wrapper');
-        const speedNotify = document.getElementById('speed-notify');
-        document.getElementById('bg-layer').style.backgroundColor = BG_COLOR;
-
-        let activeArts = [];
-        let pool = [];
-        let poolIndex = 0;
-        const ART_WIDTH = 80; // 縮小後の横幅
-
-        function showSpeed() {
-            speedNotify.innerText = `Spd: ${currentSpeed.toFixed(1)}`;
-            speedNotify.style.opacity = 1;
-            setTimeout(() => { speedNotify.style.opacity = 0; }, 2000);
+        if (channel) {
+            ComfyJS.Init(channel);
+        } else {
+            alert("URLに ?channel=あなたのチャンネル名 を入れてください");
         }
 
-        function createArt(code, userName) {
+        ComfyJS.onCommand = (user, command, message, flags, extra) => {
+            if (command === "draw" && message) {
+                createArt(user, message);
+            }
+            
+            // 管理者用：速度変更
+            if ((flags.broadcaster || flags.mod) && command === "speed") {
+                const s = parseInt(message);
+                if (s > 0) moveSpeed = s;
+            }
+        };
+
+        function createArt(user, data) {
+            const palKey = data[0].toLowerCase();
+            const colors = PALETTES[palKey] || PALETTES["0"];
+            const pixelData = data.substring(1);
+
             const container = document.createElement('div');
             container.className = 'art-container';
-            container.style.top = ART_TOP + 'px';
+            container.style.animationDuration = moveSpeed + "s";
+            // 重ならないように高さをランダムにする（配信画面上部100px以内を想定）
+            container.style.top = Math.random() * 20 + "px";
 
-            const nameLabel = document.createElement('div');
-            nameLabel.className = 'user-name';
-            nameLabel.innerText = userName;
-            container.appendChild(nameLabel);
+            const grid = document.createElement('div');
+            grid.className = 'pixel-grid';
 
-            const artDiv = document.createElement('div');
-            artDiv.className = 'pixel-art';
-            
-            let pIdx = 0;
-            const pixelColors = new Array(256).fill('transparent');
-            for (let i = 0; i < code.length; i += 2) {
-                const color = PALETTE[parseInt(code[i], 16)] || 'transparent';
-                const count = parseInt(code[i+1], 16);
-                for (let j = 0; j < count; j++) {
-                    if (pIdx < 256) pixelColors[pIdx] = color;
-                    pIdx++;
-                }
-            }
-            pixelColors.forEach(color => {
-                const p = document.createElement('div');
-                p.className = 'pixel';
-                p.style.backgroundColor = color;
-                artDiv.appendChild(p);
-            });
-            container.appendChild(artDiv);
-
-            return { el: container, code: code, userName: userName, left: -(ART_WIDTH + MARGIN) };
-        }
-
-        function update() {
-            for (let i = 0; i < activeArts.length; i++) {
-                const art = activeArts[i];
-                let canMove = false;
-                if (i === 0) {
-                    canMove = true;
-                } else {
-                    const prevArt = activeArts[i-1];
-                    if (prevArt.left > art.left + ART_WIDTH + MARGIN) {
-                        canMove = true;
+            // 圧縮データの展開
+            let pCount = 0;
+            for (let i = 0; i < pixelData.length; i += 2) {
+                if (pCount >= 256) break;
+                const colorIdx = parseInt(pixelData[i], 16);
+                const repeat = parseInt(pixelData[i + 1], 16);
+                
+                for (let r = 0; r < repeat; r++) {
+                    if (pCount < 256) {
+                        const px = document.createElement('div');
+                        px.className = 'px';
+                        px.style.backgroundColor = colors[colorIdx] || 'transparent';
+                        grid.appendChild(px);
+                        pCount++;
                     }
                 }
-                if (canMove) {
-                    art.left += currentSpeed;
-                    art.el.style.left = art.left + 'px';
-                }
             }
-            // 900pxを超えたらループ
-            if (activeArts.length > 0 && activeArts[0].left > 900) {
-                const finishedArt = activeArts.shift();
-                finishedArt.left = -(ART_WIDTH + MARGIN);
-                finishedArt.el.style.left = finishedArt.left + 'px';
-                activeArts.push(finishedArt);
+
+            // 256マスに足りない分を透明で埋める
+            while (pCount < 256) {
+                const px = document.createElement('div');
+                px.className = 'px';
+                grid.appendChild(px);
+                pCount++;
             }
-            requestAnimationFrame(update);
+
+            const nameTag = document.createElement('div');
+            nameTag.className = 'user-name';
+            nameTag.innerText = user;
+
+            container.appendChild(grid);
+            container.appendChild(nameTag);
+            document.getElementById('stage').appendChild(container);
+
+            // アニメーション終了後に削除
+            container.onanimationend = () => container.remove();
         }
-        update();
-
-        function connect() {
-            const socket = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
-            socket.onopen = () => {
-                socket.send('CAP REQ :twitch.tv/commands twitch.tv/tags');
-                socket.send('NICK justinfan' + Math.floor(Math.random() * 10000));
-                socket.send('JOIN #' + CHANNEL_NAME);
-            };
-            socket.onmessage = (event) => {
-                const msg = event.data;
-                if (msg.startsWith('PING')) { socket.send('PONG :tmi.twitch.tv'); return; }
-                if (msg.includes('PRIVMSG')) {
-                    const nameMatch = msg.match(/display-name=([^; ]+)/);
-                    const userName = nameMatch ? nameMatch[1] : "Anon";
-                    const chatText = msg.split('PRIVMSG #' + CHANNEL_NAME + ' :')[1]?.trim();
-                    if (!chatText) return;
-
-                    if (chatText === '!sparkle' || chatText === '!bomb' || chatText === '!clear') {
-                        activeArts.forEach((art) => {
-                            if (art.userName === userName) {
-                                if (chatText === '!sparkle') {
-                                    art.el.classList.add('sparkle');
-                                    setTimeout(() => art.el.classList.remove('sparkle'), 7000);
-                                } else if (chatText === '!bomb') {
-                                    art.el.classList.add('explode');
-                                    setTimeout(() => removeArt(art), 600);
-                                } else if (chatText === '!clear') {
-                                    removeArt(art);
-                                }
-                            }
-                        });
-                        return;
-                    }
-
-                    if (chatText === '!fast') { currentSpeed = Math.min(5.0, currentSpeed + SPEED_STEP); showSpeed(); return; }
-                    if (chatText === '!slow') { currentSpeed = Math.max(0.1, currentSpeed - SPEED_STEP); showSpeed(); return; }
-
-                    if (chatText.startsWith('!draw ')) {
-                        const code = chatText.replace('!draw ', '');
-                        if (pool.length < MAX_POOL_SIZE) {
-                            const artObj = createArt(code, userName);
-                            pool.push(artObj); activeArts.push(artObj);
-                            wrapper.appendChild(artObj.el);
-                        } else {
-                            const targetArt = pool[poolIndex];
-                            const newArtObj = createArt(code, userName);
-                            targetArt.el.innerHTML = newArtObj.el.innerHTML;
-                            targetArt.userName = userName;
-                            poolIndex = (poolIndex + 1) % MAX_POOL_SIZE;
-                        }
-                    }
-                }
-            };
-            socket.onclose = () => setTimeout(connect, 3000);
-        }
-
-        function removeArt(artObj) {
-            artObj.el.remove();
-            activeArts = activeArts.filter(a => a !== artObj);
-            pool = pool.filter(p => p !== artObj);
-        }
-        connect();
     </script>
 </body>
 </html>
