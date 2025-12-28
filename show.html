@@ -10,29 +10,65 @@
         .art-container {
             position: absolute; right: -150px; top: 10px;
             display: flex; flex-direction: column; align-items: center;
-            animation: move linear forwards;
+            animation: move linear infinite;
         }
 
         .pixel-grid {
-            display: grid;
-            grid-template-columns: repeat(16, 5px);
-            grid-template-rows: repeat(16, 5px);
-            width: 80px; height: 80px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 4px; overflow: hidden;
+            display: grid; grid-template-columns: repeat(16, 5px); grid-template-rows: repeat(16, 5px);
+            width: 80px; height: 80px; 
+            /* 背景を完全に透明に設定 */
+            background: transparent; 
+            border-radius: 4px; overflow: visible; position: relative;
         }
-
         .px { width: 5px; height: 5px; }
-
         .user-name {
-            margin-top: 4px; font-size: 12px; font-weight: bold; color: white;
-            text-shadow: 1px 1px 2px black, -1px -1px 2px black;
-            white-space: nowrap;
+            margin-top: 4px; font-size: 11px; font-weight: bold; color: white;
+            text-shadow: 1px 1px 2px black, -1px -1px 2px black; white-space: nowrap;
         }
 
-        @keyframes move {
-            from { transform: translateX(0); }
-            to { transform: translateX(-120vw); }
+        /* アニメーション：ループ */
+        @keyframes move { 
+            from { transform: translateX(0); } 
+            to { transform: translateX(calc(-100vw - 250px)); } 
+        }
+
+        /* 揺らす(Shake) */
+        .shake { animation: shake 0.5s infinite; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* ぴょんぴょん(Jump) */
+        .jump { animation: jump 0.6s infinite ease-in-out; }
+        @keyframes jump {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* ダンス(Dance) */
+        .dance { animation: dance 0.8s infinite; }
+        @keyframes dance {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(10deg) scale(1.1); }
+            75% { transform: rotate(-10deg) scale(1.1); }
+        }
+
+        /* キラキラ(Sparkle) */
+        .sparkle::after {
+            content: '✨'; position: absolute; top: -10px; left: -10px; width: 100px; height: 100px;
+            display: flex; align-items: center; justify-content: center; font-size: 50px;
+            animation: sparkle-anim 1s infinite; pointer-events: none;
+        }
+        @keyframes sparkle-anim { 0%, 100% { opacity: 0; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.3); } }
+
+        /* 爆発(Bomb) */
+        .bomb { animation: bomb-anim 0.4s infinite; filter: contrast(2.5); }
+        @keyframes bomb-anim {
+            0% { transform: scale(1); filter: hue-rotate(0deg) brightness(1); }
+            50% { transform: scale(1.4); filter: hue-rotate(180deg) brightness(3); }
+            100% { transform: scale(1); filter: hue-rotate(360deg) brightness(1); }
         }
     </style>
 </head>
@@ -41,7 +77,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/comfy.js@latest/dist/comfy.min.js"></script>
     <script>
-        // paint.htmlと完全に一致するパレット定義
         const PALETTES = {
             "0": ['transparent','#ffffff','#888888','#222222','#ff4b2b','#33cc33','#0077ff','#ffee00','#ff99cc','#66ffff','#ccff33','#8b4513','#b22222','#000080','#ff8c00','#000000'],
             "1": ['transparent','#fff5eb','#fde5d2','#f9d4b8','#f3b08c','#e3906c','#c07254','#91553d','#ff66a3','#ff0066','#9900ff','#442211','#55ccff','#ffffff','#222222','#000000'],
@@ -61,31 +96,49 @@
             "f": ['transparent','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffffff','#808080','#800000','#008000','#000080','#808000','#800080','#444444','#000000']
         };
 
-        let moveSpeed = 20; // 秒（右から左までかかる時間）
+        let moveSpeed = 20;
+        let bannedUsers = new Set();
+        const userContainers = {};
 
-        // URLパラメータからチャンネル名を取得
         const params = new URLSearchParams(window.location.search);
         const channel = params.get('channel');
-
-        if (channel) {
-            ComfyJS.Init(channel);
-        } else {
-            alert("URLに ?channel=あなたのチャンネル名 を入れてください");
-        }
+        if (channel) ComfyJS.Init(channel);
 
         ComfyJS.onCommand = (user, command, message, flags, extra) => {
-            if (command === "draw" && message) {
-                createArt(user, message);
-            }
+            const userId = user.toLowerCase();
+            if (bannedUsers.has(userId)) return;
+
+            if (command === "draw" && message) { createArt(user, message); }
             
-            // 管理者用：速度変更
-            if ((flags.broadcaster || flags.mod) && command === "speed") {
-                const s = parseInt(message);
-                if (s > 0) moveSpeed = s;
+            const effects = ["shake", "jump", "dance", "sparkle", "bomb"];
+            if (effects.includes(command)) { applyEffect(userId, command); }
+
+            if (flags.broadcaster || flags.mod) {
+                const target = message ? message.replace('@', '').toLowerCase() : "";
+                if (command === "picclear") {
+                    if (userContainers[target]) {
+                        userContainers[target].forEach(el => el.remove());
+                        userContainers[target] = [];
+                    }
+                }
+                if (command === "picban") {
+                    if (target) {
+                        bannedUsers.add(target);
+                        if (userContainers[target]) {
+                            userContainers[target].forEach(el => el.remove());
+                            userContainers[target] = [];
+                        }
+                    }
+                }
+                if (command === "speed") {
+                    const s = parseInt(message);
+                    if (s > 0) moveSpeed = s;
+                }
             }
         };
 
         function createArt(user, data) {
+            const userId = user.toLowerCase();
             const palKey = data[0].toLowerCase();
             const colors = PALETTES[palKey] || PALETTES["0"];
             const pixelData = data.substring(1);
@@ -93,19 +146,15 @@
             const container = document.createElement('div');
             container.className = 'art-container';
             container.style.animationDuration = moveSpeed + "s";
-            // 重ならないように高さをランダムにする（配信画面上部100px以内を想定）
-            container.style.top = Math.random() * 20 + "px";
+            container.style.top = (Math.random() * 80) + "px";
 
             const grid = document.createElement('div');
             grid.className = 'pixel-grid';
 
-            // 圧縮データの展開
             let pCount = 0;
             for (let i = 0; i < pixelData.length; i += 2) {
-                if (pCount >= 256) break;
                 const colorIdx = parseInt(pixelData[i], 16);
                 const repeat = parseInt(pixelData[i + 1], 16);
-                
                 for (let r = 0; r < repeat; r++) {
                     if (pCount < 256) {
                         const px = document.createElement('div');
@@ -117,14 +166,6 @@
                 }
             }
 
-            // 256マスに足りない分を透明で埋める
-            while (pCount < 256) {
-                const px = document.createElement('div');
-                px.className = 'px';
-                grid.appendChild(px);
-                pCount++;
-            }
-
             const nameTag = document.createElement('div');
             nameTag.className = 'user-name';
             nameTag.innerText = user;
@@ -133,8 +174,18 @@
             container.appendChild(nameTag);
             document.getElementById('stage').appendChild(container);
 
-            // アニメーション終了後に削除
-            container.onanimationend = () => container.remove();
+            if (!userContainers[userId]) userContainers[userId] = [];
+            userContainers[userId].push(container);
+        }
+
+        function applyEffect(userId, effect) {
+            if (userContainers[userId]) {
+                userContainers[userId].forEach(container => {
+                    const grid = container.querySelector('.pixel-grid');
+                    grid.classList.add(effect);
+                    setTimeout(() => { grid.classList.remove(effect); }, 5000);
+                });
+            }
         }
     </script>
 </body>

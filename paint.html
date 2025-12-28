@@ -2,163 +2,204 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Pixel Editor (Preview Support)</title>
+    <title>Pixel Art Editor</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #1a1a1a; color: white; padding: 20px; }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #121212; color: white; padding: 20px; }
         
-        /* メインレイアウト */
         .editor-layout { display: flex; gap: 30px; align-items: flex-start; margin-bottom: 20px; }
         
-        /* 編集エリア */
-        .grid-container {
-            width: 352px; height: 352px;
-            background-image: linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%);
+        /* 編集エリア：透明がわかりやすいよう市松模様を濃いめに設定 */
+        .grid-container { 
+            width: 352px; height: 352px; 
+            background-image: linear-gradient(45deg, #222 25%, transparent 25%), linear-gradient(-45deg, #222 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #222 75%), linear-gradient(-45deg, transparent 75%, #222 75%);
             background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-            border: 2px solid #444; position: relative;
+            background-color: #1a1a1a;
+            border: 2px solid #444; position: relative; 
         }
         #grid { display: grid; grid-template-columns: repeat(16, 22px); grid-template-rows: repeat(16, 22px); width: 352px; height: 352px; }
-        .cell { width: 22px; height: 22px; cursor: crosshair; box-sizing: border-box; border: 0.5px solid rgba(255, 255, 255, 0.15); }
+        .cell { width: 22px; height: 22px; cursor: crosshair; box-sizing: border-box; border: 0.5px solid rgba(255, 255, 255, 0.1); }
         #grid.no-grid .cell { border: none; }
 
-        /* プレビューエリア (1/4サイズ) */
-        .preview-pane { display: flex; flex-direction: column; align-items: center; background: #252525; padding: 15px; border-radius: 8px; border: 1px solid #444; }
-        .preview-title { font-size: 12px; color: #aaa; margin-bottom: 10px; font-weight: bold; }
+        .preview-pane { display: flex; flex-direction: column; align-items: center; background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; }
         .preview-box { width: 80px; height: 80px; display: grid; grid-template-columns: repeat(16, 5px); background: #000; }
         .p-pixel { width: 5px; height: 5px; }
+
+        .palette-selector { display: flex; gap: 4px; flex-wrap: wrap; width: 580px; margin-bottom: 12px; justify-content: center; }
+        .pal-btn { padding: 4px 8px; font-size: 11px; cursor: pointer; background: #333; border: 1px solid #555; color: #aaa; border-radius: 3px; }
+        .pal-btn.active { background: #9146ff; color: white; border-color: #fff; }
         
         .palette { display: flex; gap: 6px; flex-wrap: wrap; width: 480px; justify-content: center; margin-bottom: 20px; }
-        .p-color { width: 35px; height: 35px; cursor: pointer; border: 2px solid #555; border-radius: 6px; position: relative; }
-        .p-color.selected { border-color: #fff; transform: scale(1.1); box-shadow: 0 0 10px #fff; z-index: 10; }
-        .p-transparent::after { content: "×"; color: red; font-size: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .p-color { width: 35px; height: 35px; cursor: pointer; border: 2px solid #444; border-radius: 6px; position: relative; box-sizing: border-box; }
+        .p-color.selected { border-color: #fff; transform: scale(1.1); box-shadow: 0 0 12px rgba(255,255,255,0.5); z-index: 10; }
         
-        .tool-box { display: flex; gap: 10px; margin-bottom: 15px; background: #333; padding: 10px; border-radius: 8px; }
-        .tool-btn { padding: 8px 15px; cursor: pointer; border: 2px solid #555; background: #444; color: white; border-radius: 4px; font-weight: bold; font-size: 12px; }
-        .tool-btn.active { border-color: #fff; background: #2a52be; }
+        /* 透明色の表示を強調 */
+        .p-transparent { background-color: #333 !important; }
+        .p-transparent::after { content: "×"; color: #ff4444; font-size: 28px; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+        .tool-box { display: flex; gap: 10px; margin-bottom: 15px; background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+        .tool-btn { padding: 8px 15px; cursor: pointer; border: 1px solid #444; background: #333; color: white; border-radius: 4px; font-size: 12px; }
+        .tool-btn.active { border-color: #9146ff; background: #9146ff; box-shadow: 0 0 8px rgba(145, 70, 255, 0.4); }
         
-        .shortcut-info { margin-bottom: 15px; color: #aaa; font-size: 13px; text-align: center; line-height: 1.6; }
-        .controls { display: flex; gap: 10px; margin-bottom: 10px; }
-        button { padding: 12px 20px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; color: white; }
-        .btn-undo { background: #8e44ad; }
-        .btn-redo { background: #27ae60; }
-        .btn-clear { background: #444; }
-        .btn-gen { background: #2a52be; }
-        textarea { width: 460px; height: 60px; margin-top: 15px; background: #000; color: #0f0; border: 1px solid #333; font-family: monospace; padding: 10px; }
+        button { padding: 12px 20px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; color: white; transition: 0.2s; }
+        button:hover { opacity: 0.8; }
+        .btn-undo { background: #6e44ff; } .btn-redo { background: #27ae60; } .btn-clear { background: #555; } .btn-gen { background: #9146ff; width: 200px; }
+        
+        textarea { width: 480px; height: 70px; margin-top: 15px; background: #000; color: #00ff00; border: 1px solid #333; font-family: 'Courier New', monospace; padding: 10px; border-radius: 4px; resize: none; }
     </style>
 </head>
 <body>
     <h2>Pixel Art Editor</h2>
 
-    <div class="shortcut-info">
-        [R]:ペン [F]:バケツ [Q]:スポイト [X]:透明 [A]:前回の色<br>
-        [Z]:やり直し [Y]:元に戻す [I]:グリッド [1-9]:色選択
-    </div>
-
     <div class="tool-box">
-        <div id="btn-pen" class="tool-btn active" onclick="setTool('pen')">鉛筆 [R]</div>
-        <div id="btn-fill" class="tool-btn" onclick="setTool('fill')">塗りつぶし [F]</div>
+        <div id="btn-pen" class="tool-btn active" onclick="setTool('pen')">ペン [R]</div>
+        <div id="btn-fill" class="tool-btn" onclick="setTool('fill')">バケツ [F]</div>
         <div id="btn-picker" class="tool-btn" onclick="setTool('picker')">スポイト [Q]</div>
         <div id="btn-grid" class="tool-btn active" onclick="toggleGrid()">グリッド [I]</div>
     </div>
 
     <div class="editor-layout">
         <div class="grid-container"><div id="grid"></div></div>
-        
         <div class="preview-pane">
-            <div class="preview-title">配信表示サイズ</div>
+            <div style="font-size: 11px; margin-bottom: 8px; color: #888;">PREVIEW</div>
             <div id="preview" class="preview-box"></div>
         </div>
     </div>
 
+    <div class="palette-selector" id="pal-selector"></div>
     <div class="palette" id="palette"></div>
     
     <div class="controls">
-        <button class="btn-undo" onclick="undo()">やり直し [Z]</button>
-        <button class="btn-redo" onclick="redo()">元に戻す [Y]</button>
+        <button class="btn-undo" onclick="undo()">[Z] 戻る</button>
+        <button class="btn-redo" onclick="redo()">[Y] 進む</button>
         <button class="btn-clear" onclick="clearGrid()">全消去</button>
-        <button class="btn-gen" onclick="generateCode()">コード生成 & コピー</button>
+        <button class="btn-gen" onclick="generateCode()">!drawコードを生成</button>
     </div>
-    <textarea id="output" readonly placeholder="ここにコマンドが生成されます"></textarea>
+    <textarea id="output" readonly placeholder="ここに送信用のコードが生成されます"></textarea>
 
     <script>
-        const colors = ['transparent','#ffffff','#888888','#222222','#ff4b2b','#33cc33','#0077ff','#ffee00','#ff99cc','#66ffff','#ccff33','#8b4513','#b22222','#000080','#ff8c00','#9933ff'];
+        const PALETTES = {
+            "基本": ['transparent','#ffffff','#888888','#222222','#ff4b2b','#33cc33','#0077ff','#ffee00','#ff99cc','#66ffff','#ccff33','#8b4513','#b22222','#000080','#ff8c00','#000000'],
+            "人物": ['transparent','#fff5eb','#fde5d2','#f9d4b8','#f3b08c','#e3906c','#c07254','#91553d','#ff66a3','#ff0066','#9900ff','#442211','#55ccff','#ffffff','#222222','#000000'],
+            "モノクロ": ['transparent','#ffffff','#f8f8f8','#e0e0e0','#cccccc','#b0b0b0','#999999','#808080','#666666','#505050','#404040','#303030','#202020','#101010','#050505','#000000'],
+            "暖色": ['transparent','#ff6b6b','#fa5252','#f03e3e','#e03131','#c92a2a','#ffa94d','#fd7e14','#f76707','#e8590c','#d9480f','#ffffff','#ffec99','#fab005','#222222','#000000'],
+            "寒色": ['transparent','#339af0','#228be6','#1c7ed6','#1971c2','#1864ab','#38d9a9','#20c997','#12b886','#0ca678','#099268','#ffffff','#a5d8ff','#111111','#222222','#000000'],
+            "ファミコン": ['transparent','#f8f8f8','#bcbcbc','#7c7c7c','#f8d878','#f8a000','#f83800','#d80000','#008800','#00a800','#0058f8','#3cbcfc','#0000bc','#6844fc','#ffffff','#000000'],
+            "パステル": ['transparent','#ffb7b2','#ffdac1','#e2f0cb','#b5ead7','#c7ceea','#ffc6ff','#9bf6ff','#a0c4ff','#bdb2ff','#fffffc','#ffffff','#333333','#aaaaaa','#222222','#000000'],
+            "赤黒白": ['transparent','#ff0000','#cc0000','#990000','#660000','#330000','#ff8888','#ffcccc','#ffffff','#eeeeee','#cccccc','#999999','#666666','#333333','#111111','#000000'],
+            "サイバー": ['transparent','#00ff00','#ff00ff','#00ffff','#ffff00','#ff0000','#ffffff','#003300','#330033','#003333','#333300','#330000','#444444','#888888','#222222','#000000'],
+            "森": ['transparent','#2d5a27','#1e3f1a','#4a7c44','#6b8e23','#8fbc8f','#556b2f','#a2ad91','#deb887','#8b4513','#5d4037','#ffffff','#cccccc','#444444','#222222','#000000'],
+            "海": ['transparent','#0077be','#005b96','#03396c','#011f4b','#6497b1','#b3cde0','#009688','#4db6ac','#80cbc4','#ffffff','#dddddd','#aaaaaa','#333333','#111111','#000000'],
+            "夕焼け": ['transparent','#ff4500','#ff6347','#ff8c00','#ffa500','#ffd700','#2f4f4f','#708090','#191970','#000080','#483d8b','#ffffff','#aaaaaa','#333333','#111111','#000000'],
+            "GB風": ['transparent','#9bbc0f','#8bab0f','#306230','#0f380f','#ffffff','#dddddd','#bbbbbb','#999999','#777777','#555555','#333333','#111111','#050505','#222222','#000000'],
+            "和風": ['transparent','#a63d33','#e0815e','#6b4a3e','#f2e8d5','#bfbd97','#8c9e5e','#5e6146','#3e4a3d','#2b3a2d','#1a201a','#ffffff','#cccccc','#888888','#222222','#000000'],
+            "ベリー": ['transparent','#5d001e','#9a1750','#ee4c7c','#ff66aa','#cc3366','#990033','#ffcccc','#ff99cc','#ffffff','#eeeeee','#cccccc','#999999','#444444','#222222','#000000'],
+            "原色": ['transparent','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffffff','#808080','#800000','#008000','#000080','#808000','#800080','#444444','#000000']
+        };
+
+        let currentPalKey = "基本";
         let selectedIdx = 1;
         let prevIdx = 1;
         let isDrawing = false;
         let currentTool = 'pen';
         let undoStack = [];
         let redoStack = [];
-        const MAX_HISTORY = 30;
 
         const grid = document.getElementById('grid');
         const preview = document.getElementById('preview');
         const cells = [];
         const previewCells = [];
 
-        // グリッドとプレビューの初期化
         for (let i = 0; i < 256; i++) {
             const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.dataset.idx = "0";
+            cell.className = 'cell'; cell.dataset.idx = "0";
             cell.onmousedown = (e) => {
                 saveHistory();
-                if (currentTool === 'picker') {
-                    selectColor(parseInt(cell.dataset.idx));
-                    setTool('pen');
-                } else if (currentTool === 'fill') {
-                    fill(i);
-                } else {
-                    isDrawing = true;
-                    paint(i);
-                }
+                if (currentTool === 'picker') { selectColor(parseInt(cell.dataset.idx)); setTool('pen'); }
+                else if (currentTool === 'fill') { fill(i); }
+                else { isDrawing = true; paint(i); }
                 e.preventDefault();
             };
             cell.onmouseenter = () => { if (isDrawing && currentTool === 'pen') paint(i); };
-            grid.appendChild(cell);
-            cells.push(cell);
-
-            // プレビュー用ピクセル
+            grid.appendChild(cell); cells.push(cell);
             const pPixel = document.createElement('div');
-            pPixel.className = 'p-pixel';
-            preview.appendChild(pPixel);
-            previewCells.push(pPixel);
+            pPixel.className = 'p-pixel'; preview.appendChild(pPixel); previewCells.push(pPixel);
         }
 
         function paint(i) {
-            cells[i].style.backgroundColor = colors[selectedIdx];
+            cells[i].style.backgroundColor = PALETTES[currentPalKey][selectedIdx];
             cells[i].dataset.idx = selectedIdx;
-            previewCells[i].style.backgroundColor = colors[selectedIdx];
+            previewCells[i].style.backgroundColor = PALETTES[currentPalKey][selectedIdx];
+        }
+
+        function refreshColors() {
+            cells.forEach((c, i) => {
+                const idx = parseInt(c.dataset.idx);
+                c.style.backgroundColor = PALETTES[currentPalKey][idx];
+                previewCells[i].style.backgroundColor = PALETTES[currentPalKey][idx];
+            });
+            renderPalette();
+        }
+
+        function renderPalette() {
+            const palDiv = document.getElementById('palette');
+            palDiv.innerHTML = '';
+            PALETTES[currentPalKey].forEach((c, i) => {
+                const btn = document.createElement('div');
+                btn.className = 'p-color' + (i === selectedIdx ? ' selected' : '');
+                if (i === 0) btn.classList.add('p-transparent');
+                btn.style.backgroundColor = c;
+                btn.onclick = () => selectColor(i);
+                palDiv.appendChild(btn);
+            });
+        }
+
+        const selDiv = document.getElementById('pal-selector');
+        Object.keys(PALETTES).forEach(key => {
+            const btn = document.createElement('button');
+            btn.className = 'pal-btn' + (key === currentPalKey ? ' active' : '');
+            btn.innerText = key;
+            btn.onclick = () => {
+                document.querySelectorAll('.pal-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentPalKey = key;
+                refreshColors();
+            };
+            selDiv.appendChild(btn);
+        });
+
+        function selectColor(index) {
+            prevIdx = selectedIdx; selectedIdx = index;
+            renderPalette();
         }
 
         function saveHistory() {
-            undoStack.push(JSON.stringify(cells.map(c => c.dataset.idx)));
-            if (undoStack.length > MAX_HISTORY) undoStack.shift();
+            undoStack.push(JSON.stringify({pal: currentPalKey, data: cells.map(c => c.dataset.idx)}));
+            if (undoStack.length > 50) undoStack.shift();
             redoStack = [];
-        }
-
-        function applyState(state) {
-            state.forEach((colorIdx, i) => {
-                cells[i].dataset.idx = colorIdx;
-                cells[i].style.backgroundColor = colors[colorIdx];
-                previewCells[i].style.backgroundColor = colors[colorIdx];
-            });
         }
 
         function undo() {
             if (undoStack.length === 0) return;
-            redoStack.push(JSON.stringify(cells.map(c => c.dataset.idx)));
-            applyState(JSON.parse(undoStack.pop()));
+            redoStack.push(JSON.stringify({pal: currentPalKey, data: cells.map(c => c.dataset.idx)}));
+            const last = JSON.parse(undoStack.pop());
+            currentPalKey = last.pal;
+            last.data.forEach((idx, i) => { cells[i].dataset.idx = idx; });
+            refreshColors();
         }
 
         function redo() {
             if (redoStack.length === 0) return;
-            undoStack.push(JSON.stringify(cells.map(c => c.dataset.idx)));
-            applyState(JSON.parse(redoStack.pop()));
+            undoStack.push(JSON.stringify({pal: currentPalKey, data: cells.map(c => c.dataset.idx)}));
+            const next = JSON.parse(redoStack.pop());
+            currentPalKey = next.pal;
+            next.data.forEach((idx, i) => { cells[i].dataset.idx = idx; });
+            refreshColors();
         }
 
-        function setTool(tool) {
-            currentTool = tool;
+        function setTool(t) {
+            currentTool = t;
             document.querySelectorAll('.tool-btn').forEach(b => { if(b.id !== 'btn-grid') b.classList.remove('active'); });
-            document.getElementById('btn-' + tool).classList.add('active');
+            document.getElementById('btn-' + t).classList.add('active');
         }
 
         function toggleGrid() {
@@ -166,35 +207,11 @@
             document.getElementById('btn-grid').classList.toggle('active');
         }
 
-        function selectColor(index) {
-            if (index < 0 || index >= colors.length || index === selectedIdx) return;
-            prevIdx = selectedIdx;
-            selectedIdx = index;
-            document.querySelector('.p-color.selected').classList.remove('selected');
-            document.querySelectorAll('.p-color')[index].classList.add('selected');
-        }
-
-        const paletteDiv = document.getElementById('palette');
-        colors.forEach((c, i) => {
-            const btn = document.createElement('div');
-            btn.className = 'p-color' + (i === selectedIdx ? ' selected' : '');
-            if (i === 0) btn.classList.add('p-transparent');
-            btn.style.backgroundColor = c;
-            btn.onclick = () => selectColor(i);
-            paletteDiv.appendChild(btn);
-        });
-
         window.addEventListener('keydown', (e) => {
-            const key = e.key.toLowerCase();
-            if (key === 'r') setTool('pen');
-            if (key === 'f') setTool('fill');
-            if (key === 'q') setTool('picker');
-            if (key === 'x') selectColor(0);
-            if (key === 'a') selectColor(prevIdx);
-            if (key === 'z') undo();
-            if (key === 'y') redo();
-            if (key === 'i') toggleGrid();
-            if (/[1-9]/.test(key)) selectColor(parseInt(key));
+            const k = e.key.toLowerCase();
+            if (k === 'r') setTool('pen'); if (k === 'f') setTool('fill'); if (k === 'q') setTool('picker');
+            if (k === 'x') selectColor(0); if (k === 'a') selectColor(prevIdx); if (k === 'z') undo(); if (k === 'y') redo();
+            if (k === 'i') toggleGrid(); if (/[1-9]/.test(k)) selectColor(parseInt(k));
         });
 
         window.onmouseup = () => isDrawing = false;
@@ -206,39 +223,38 @@
             while (queue.length > 0) {
                 const p = queue.shift();
                 if (processed.has(p) || cells[p].dataset.idx !== targetIdx) continue;
-                cells[p].style.backgroundColor = colors[selectedIdx];
                 cells[p].dataset.idx = selectedIdx;
-                previewCells[p].style.backgroundColor = colors[selectedIdx];
                 processed.add(p);
                 const x = p % 16, y = Math.floor(p / 16);
                 if (x > 0) queue.push(p - 1); if (x < 15) queue.push(p + 1);
                 if (y > 0) queue.push(p - 16); if (y < 15) queue.push(p + 16);
             }
+            refreshColors();
         }
 
         function clearGrid() {
-            if(confirm("すべて透明にしますか？")) {
-                saveHistory();
-                cells.forEach((c, i) => {
-                    c.style.backgroundColor = 'transparent';
-                    c.dataset.idx = "0";
-                    previewCells[i].style.backgroundColor = 'transparent';
-                });
-            }
+            if(confirm("すべて消去しますか？")) { saveHistory(); cells.forEach(c => c.dataset.idx = "0"); refreshColors(); }
         }
 
         function generateCode() {
             const data = cells.map(c => parseInt(c.dataset.idx));
+            let lastImportant = -1;
+            for(let i=0; i<256; i++) if(data[i] !== 0) lastImportant = i;
+            
             let compressed = "";
-            for (let i = 0; i < data.length; i++) {
+            const keys = Object.keys(PALETTES);
+            const palIdx = keys.indexOf(currentPalKey).toString(16);
+            
+            for (let i = 0; i <= lastImportant; i++) {
                 let count = 1;
-                while (i + 1 < data.length && data[i] === data[i+1] && count < 15) { count++; i++; }
+                while (i + 1 <= lastImportant && data[i] === data[i+1] && count < 15) { count++; i++; }
                 compressed += data[i].toString(16) + count.toString(16);
             }
-            const finalCode = "!draw " + compressed;
+            const finalCode = "!draw " + palIdx + compressed;
             document.getElementById('output').value = finalCode;
-            navigator.clipboard.writeText(finalCode).then(() => alert("コピーしました！"));
+            navigator.clipboard.writeText(finalCode).then(() => alert("コピーしました！チャットに貼り付けて送信してください。"));
         }
+        renderPalette();
     </script>
 </body>
 </html>
