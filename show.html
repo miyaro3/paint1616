@@ -5,19 +5,36 @@
     <title>miyaro paint</title>
     <style>
         body { margin: 0; overflow: hidden; background: transparent; font-family: 'Arial', sans-serif; }
-        /* 推奨サイズに合わせてステージを固定 */
-        #stage { width: 800px; height: 200px; position: relative; overflow: hidden; }
         
-        .art-container {
-            position: absolute; left: -150px; top: 10px;
-            display: flex; flex-direction: column; align-items: center;
-            animation: move linear infinite;
+        /* 画面サイズを 852x480 に設定 */
+        #stage { 
+            width: 852px; 
+            height: 480px; 
+            position: relative; 
+            overflow: hidden; 
+        }
+        
+        /* 絵と名前のセット：最下段に配置 */
+        .art-container { 
+            position: absolute; 
+            width: 80px; 
+            left: -150px; 
+            bottom: 10px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            will-change: left;
         }
 
         .pixel-grid {
-            display: grid; grid-template-columns: repeat(16, 5px); grid-template-rows: repeat(16, 5px);
-            width: 80px; height: 80px; background: transparent; 
-            border-radius: 4px; overflow: visible; position: relative;
+            display: grid; 
+            grid-template-columns: repeat(16, 5px); 
+            grid-template-rows: repeat(16, 5px);
+            width: 80px; height: 80px; 
+            background: transparent; 
+            border-radius: 4px; 
+            overflow: visible; 
+            position: relative;
         }
         .px { width: 5px; height: 5px; }
         .user-name {
@@ -25,13 +42,7 @@
             text-shadow: 1px 1px 2px black, -1px -1px 2px black; white-space: nowrap;
         }
 
-        /* アニメーション：左から右へループ */
-        @keyframes move { 
-            from { transform: translateX(0); } 
-            to { transform: translateX(calc(800px + 250px)); } 
-        }
-
-        /* 特殊エフェクト */
+        /* エフェクト機能 */
         .shake { animation: shake 0.5s infinite; }
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
@@ -81,7 +92,7 @@
             "5": ['transparent','#f8f8f8','#bcbcbc','#7c7c7c','#f8d878','#f8a000','#f83800','#d80000','#008800','#00a800','#0058f8','#3cbcfc','#0000bc','#6844fc','#ffffff','#000000'],
             "6": ['transparent','#ffb7b2','#ffdac1','#e2f0cb','#b5ead7','#c7ceea','#ffc6ff','#9bf6ff','#a0c4ff','#bdb2ff','#fffffc','#ffffff','#333333','#aaaaaa','#222222','#000000'],
             "7": ['transparent','#ff0000','#cc0000','#990000','#660000','#330000','#ff8888','#ffcccc','#ffffff','#eeeeee','#cccccc','#999999','#666666','#333333','#111111','#000000'],
-            "8": ['transparent','#00ff00','#ff00ff','#00ffff','#ffff00','#ff0000','#ffffff','#003300','#330033','#003333','#333300','#330000','#444444','#888888','#222222','#000000'],
+            "8": ['transparent','#00ff00','#ff00ff','#00ffff','#ffff00','#ff0000','#ffffff','#003300','#330033','#003333','#330033','#330000','#444444','#888888','#222222','#000000'],
             "9": ['transparent','#2d5a27','#1e3f1a','#4a7c44','#6b8e23','#8fbc8f','#556b2f','#a2ad91','#deb887','#8b4513','#5d4037','#ffffff','#cccccc','#444444','#222222','#000000'],
             "a": ['transparent','#0077be','#005b96','#03396c','#011f4b','#6497b1','#b3cde0','#009688','#4db6ac','#80cbc4','#ffffff','#dddddd','#aaaaaa','#333333','#111111','#000000'],
             "b": ['transparent','#ff4500','#ff6347','#ff8c00','#ffa500','#ffd700','#2f4f4f','#708090','#191970','#000080','#483d8b','#ffffff','#aaaaaa','#333333','#111111','#000000'],
@@ -91,7 +102,10 @@
             "f": ['transparent','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffffff','#808080','#800000','#008000','#000080','#808000','#800080','#444444','#000000']
         };
 
-        let moveSpeed = 20;
+        let currentSpeed = 3; 
+        const ART_WIDTH = 80;
+        const MARGIN = 50; 
+        let activeArts = [];
         let bannedUsers = new Set();
         const userContainers = {};
 
@@ -111,23 +125,17 @@
             if (flags.broadcaster || flags.mod) {
                 const target = message ? message.replace('@', '').toLowerCase() : "";
                 if (command === "picclear") {
-                    if (userContainers[target]) {
-                        userContainers[target].forEach(el => el.remove());
-                        userContainers[target] = [];
-                    }
+                    removeUserArts(target);
                 }
                 if (command === "picban") {
                     if (target) {
                         bannedUsers.add(target);
-                        if (userContainers[target]) {
-                            userContainers[target].forEach(el => el.remove());
-                            userContainers[target] = [];
-                        }
+                        removeUserArts(target);
                     }
                 }
                 if (command === "speed") {
-                    const s = parseInt(message);
-                    if (s > 0) moveSpeed = s;
+                    const s = parseFloat(message);
+                    if (s > 0) currentSpeed = s / 10;
                 }
             }
         };
@@ -140,11 +148,10 @@
 
             const container = document.createElement('div');
             container.className = 'art-container';
-            container.style.animationDuration = moveSpeed + "s";
-            container.style.top = (Math.random() * 80) + "px";
 
             const grid = document.createElement('div');
-            grid.className = 'pixel-grid';
+            // 最初は jump クラスをつけて生成
+            grid.className = 'pixel-grid jump';
 
             let pCount = 0;
             for (let i = 0; i < pixelData.length; i += 2) {
@@ -169,17 +176,74 @@
             container.appendChild(nameTag);
             document.getElementById('stage').appendChild(container);
 
+            const artObj = {
+                el: container,
+                grid: grid,
+                user: userId,
+                left: -(ART_WIDTH + MARGIN),
+                isFirstLoop: true // 1週目フラグ
+            };
+
+            activeArts.push(artObj);
             if (!userContainers[userId]) userContainers[userId] = [];
-            userContainers[userId].push(container);
+            userContainers[userId].push(artObj);
         }
+
+        function update() {
+            for (let i = 0; i < activeArts.length; i++) {
+                const art = activeArts[i];
+                let canMove = false;
+                
+                if (i === 0) {
+                    canMove = true;
+                } else {
+                    const prevArt = activeArts[i-1];
+                    if (prevArt.left > art.left + ART_WIDTH + MARGIN) {
+                        canMove = true;
+                    }
+                }
+
+                if (canMove) {
+                    art.left += currentSpeed;
+                    art.el.style.left = art.left + 'px';
+                }
+            }
+
+            // 右端(852px)を超えた時のループ処理
+            if (activeArts.length > 0 && activeArts[0].left > 852) {
+                const finishedArt = activeArts.shift();
+                
+                // 1週目であれば jump クラスを外す
+                if (finishedArt.isFirstLoop) {
+                    finishedArt.grid.classList.remove('jump');
+                    finishedArt.isFirstLoop = false;
+                }
+
+                finishedArt.left = -(ART_WIDTH + MARGIN);
+                finishedArt.el.style.left = finishedArt.left + 'px';
+                activeArts.push(finishedArt);
+            }
+            requestAnimationFrame(update);
+        }
+        update();
 
         function applyEffect(userId, effect) {
             if (userContainers[userId]) {
-                userContainers[userId].forEach(container => {
-                    const grid = container.querySelector('.pixel-grid');
+                userContainers[userId].forEach(artObj => {
+                    const grid = artObj.el.querySelector('.pixel-grid');
                     grid.classList.add(effect);
                     setTimeout(() => { grid.classList.remove(effect); }, 5000);
                 });
+            }
+        }
+
+        function removeUserArts(userId) {
+            if (userContainers[userId]) {
+                userContainers[userId].forEach(artObj => {
+                    artObj.el.remove();
+                    activeArts = activeArts.filter(a => a !== artObj);
+                });
+                delete userContainers[userId];
             }
         }
     </script>
