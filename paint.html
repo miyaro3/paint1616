@@ -5,57 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pixel Art Editor</title>
     <style>
+        /* --- 基本デザイン（ダークモード） --- */
         body { 
             font-family: sans-serif; display: flex; flex-direction: column; align-items: center; 
             background: #121212; color: white; padding: 10px; margin: 0;
-            overflow-x: hidden; /* 横スクロールだけ禁止 */
+            overflow-x: hidden;
+            transition: background 0.3s, color 0.3s;
         }
         
-        h2 { margin: 10px 0; font-size: 1.2rem; }
+        /* --- ライトモード用設定 --- */
+        body.light-mode {
+            background: #f0f0f0;
+            color: #333;
+        }
 
         .editor-layout { display: flex; gap: 15px; align-items: flex-start; margin-bottom: 15px; max-width: 100vw; }
         
-        /* 編集エリア：スマホでは画面幅に合わせて少し小さく */
+        /* 描画エリア */
         .grid-container { 
             width: 320px; height: 320px; 
+            background-color: #1a1a1a;
             background-image: linear-gradient(45deg, #222 25%, transparent 25%), linear-gradient(-45deg, #222 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #222 75%), linear-gradient(-45deg, transparent 75%, #222 75%);
             background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-            background-color: #1a1a1a;
             border: 2px solid #444; position: relative; 
-            /* キャンバス上でのスクロール・ズームのみを禁止 */
-            touch-action: none; 
+            touch-action: none; /* スマホでの誤スクロール防止 */
         }
+        body.light-mode .grid-container {
+            background-color: #ffffff;
+            background-image: linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%);
+            border-color: #bbb;
+        }
+
         #grid { display: grid; grid-template-columns: repeat(16, 1fr); grid-template-rows: repeat(16, 1fr); width: 100%; height: 100%; }
         .cell { width: 100%; height: 100%; cursor: crosshair; box-sizing: border-box; border: 0.5px solid rgba(255, 255, 255, 0.1); }
+        body.light-mode .cell { border: 0.5px solid rgba(0, 0, 0, 0.05); }
         #grid.no-grid .cell { border: none; }
 
+        /* サムネイル（プレビュー） */
         .preview-pane { display: flex; flex-direction: column; align-items: center; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+        body.light-mode .preview-pane { background: #e0e0e0; border-color: #bbb; }
+        
         .preview-box { width: 64px; height: 64px; display: grid; grid-template-columns: repeat(16, 1fr); background: #000; }
+        body.light-mode .preview-box { background: #fff; border: 1px solid #ccc; }
         .p-pixel { width: 100%; height: 100%; }
 
-        /* パレット・ツール類をスマホで押しやすく調整 */
+        /* パレット・ツール */
         .palette-selector { display: flex; gap: 5px; flex-wrap: wrap; width: 95vw; margin-bottom: 10px; justify-content: center; }
         .pal-btn { padding: 8px 10px; font-size: 12px; cursor: pointer; background: #333; border: 1px solid #555; color: #aaa; border-radius: 4px; }
+        body.light-mode .pal-btn { background: #ddd; border-color: #ccc; color: #666; }
         .pal-btn.active { background: #9146ff; color: white; border-color: #fff; }
         
         .palette { display: flex; gap: 6px; flex-wrap: wrap; width: 95vw; justify-content: center; margin-bottom: 15px; }
         .p-color { width: 40px; height: 40px; cursor: pointer; border: 2px solid #444; border-radius: 6px; position: relative; box-sizing: border-box; }
+        body.light-mode .p-color { border-color: #ccc; }
         .p-color.selected { border-color: #fff; transform: scale(1.1); box-shadow: 0 0 12px rgba(255,255,255,0.5); z-index: 10; }
+        body.light-mode .p-color.selected { border-color: #9146ff; }
         
         .p-transparent { background-color: #333 !important; }
+        body.light-mode .p-transparent { background-color: #eee !important; }
         .p-transparent::after { content: "×"; color: #ff4444; font-size: 24px; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
         .tool-box { display: flex; gap: 8px; margin-bottom: 10px; background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+        body.light-mode .tool-box { background: #e0e0e0; border-color: #bbb; }
         .tool-btn { padding: 10px 12px; cursor: pointer; border: 1px solid #444; background: #333; color: white; border-radius: 4px; font-size: 13px; }
-        .tool-btn.active { border-color: #9146ff; background: #9146ff; }
+        body.light-mode .tool-btn { background: #ddd; border-color: #ccc; color: #333; }
+        .tool-btn.active { border-color: #9146ff; background: #9146ff; color: white !important; }
         
         .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
         button { padding: 12px 18px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; color: white; font-size: 14px; }
         .btn-undo { background: #6e44ff; } .btn-redo { background: #27ae60; } .btn-clear { background: #555; } .btn-gen { background: #9146ff; }
         
         textarea { width: 90vw; height: 60px; margin-top: 15px; background: #000; color: #00ff00; border: 1px solid #333; font-family: monospace; padding: 8px; border-radius: 4px; resize: none; font-size: 12px; }
+        body.light-mode textarea { background: #fff; border-color: #ccc; color: #008000; }
 
-        /* PC向けのサイズ戻し */
+        /* PC向け調整 */
         @media (min-width: 600px) {
             .grid-container { width: 352px; height: 352px; }
             .palette, .palette-selector { width: 580px; }
@@ -63,14 +86,13 @@
         }
     </style>
 </head>
-<body>
-    <h2>Pixel Art Editor</h2>
-
+<body id="main-body">
     <div class="tool-box">
         <div id="btn-pen" class="tool-btn active" onclick="setTool('pen')">ペン [R]</div>
         <div id="btn-fill" class="tool-btn" onclick="setTool('fill')">バケツ [F]</div>
         <div id="btn-picker" class="tool-btn" onclick="setTool('picker')">スポイト [Q]</div>
         <div id="btn-grid" class="tool-btn active" onclick="toggleGrid()">枠 [I]</div>
+        <div id="btn-theme" class="tool-btn" onclick="toggleTheme()">背景 [O]</div>
     </div>
 
     <div class="editor-layout">
@@ -89,10 +111,9 @@
         <button class="btn-clear" onclick="clearGrid()">消去</button>
         <button class="btn-gen" onclick="generateCode()">コード生成</button>
     </div>
-    <textarea id="output" readonly placeholder="ここに送信用のコードが生成されます"></textarea>
+    <textarea id="output" readonly placeholder="ここにコードが生成されます"></textarea>
 
     <script>
-        // ... (PALETTES等のデータ部分は変更なしなので省略可ですが、一応含めます)
         const PALETTES = {
             "基本": ['transparent','#ffffff','#888888','#222222','#ff4b2b','#33cc33','#0077ff','#ffee00','#ff99cc','#66ffff','#ccff33','#8b4513','#b22222','#000080','#ff8c00','#000000'],
             "人物": ['transparent','#fff5eb','#fde5d2','#f9d4b8','#f3b08c','#e3906c','#c07254','#91553d','#ff66a3','#ff0066','#9900ff','#442211','#55ccff','#ffffff','#222222','#000000'],
@@ -125,37 +146,27 @@
         const cells = [];
         const previewCells = [];
 
-        // 共通の開始処理
+        // 共通アクション（マウス/タッチ）
         function handleStart(i, e) {
             saveHistory();
-            if (currentTool === 'picker') { 
-                selectColor(parseInt(cells[i].dataset.idx)); 
-                setTool('pen'); 
-            } else if (currentTool === 'fill') { 
-                fill(i); 
-            } else { 
-                isDrawing = true; 
-                paint(i); 
-            }
+            if (currentTool === 'picker') { selectColor(parseInt(cells[i].dataset.idx)); setTool('pen'); }
+            else if (currentTool === 'fill') { fill(i); }
+            else { isDrawing = true; paint(i); }
             if (e.cancelable) e.preventDefault();
         }
 
         for (let i = 0; i < 256; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell'; cell.dataset.idx = "0";
-            
             cell.onmousedown = (e) => handleStart(i, e);
             cell.onmouseenter = () => { if (isDrawing && currentTool === 'pen') paint(i); };
-
-            // タッチ開始
             cell.addEventListener('touchstart', (e) => handleStart(i, e), {passive: false});
-
             grid.appendChild(cell); cells.push(cell);
             const pPixel = document.createElement('div');
             pPixel.className = 'p-pixel'; preview.appendChild(pPixel); previewCells.push(pPixel);
         }
 
-        // なぞり描き
+        // スマホなぞり描き
         grid.addEventListener('touchmove', (e) => {
             if (!isDrawing || currentTool !== 'pen') return;
             const touch = e.touches[0];
@@ -168,16 +179,18 @@
         }, {passive: false});
 
         function paint(i) {
-            cells[i].style.backgroundColor = PALETTES[currentPalKey][selectedIdx];
+            const color = PALETTES[currentPalKey][selectedIdx];
+            cells[i].style.backgroundColor = color;
             cells[i].dataset.idx = selectedIdx;
-            previewCells[i].style.backgroundColor = PALETTES[currentPalKey][selectedIdx];
+            previewCells[i].style.backgroundColor = color;
         }
 
         function refreshColors() {
             cells.forEach((c, i) => {
                 const idx = parseInt(c.dataset.idx);
-                c.style.backgroundColor = PALETTES[currentPalKey][idx];
-                previewCells[i].style.backgroundColor = PALETTES[currentPalKey][idx];
+                const color = PALETTES[currentPalKey][idx];
+                c.style.backgroundColor = color;
+                previewCells[i].style.backgroundColor = color;
             });
             renderPalette();
         }
@@ -190,7 +203,6 @@
                 btn.className = 'p-color' + (i === selectedIdx ? ' selected' : '');
                 if (i === 0) btn.classList.add('p-transparent');
                 btn.style.backgroundColor = c;
-                // スマホでも確実に反応するようにする
                 btn.onclick = () => selectColor(i);
                 palDiv.appendChild(btn);
             });
@@ -210,10 +222,7 @@
             selDiv.appendChild(btn);
         });
 
-        function selectColor(index) {
-            prevIdx = selectedIdx; selectedIdx = index;
-            renderPalette();
-        }
+        function selectColor(index) { prevIdx = selectedIdx; selectedIdx = index; renderPalette(); }
 
         function saveHistory() {
             undoStack.push(JSON.stringify({pal: currentPalKey, data: cells.map(c => c.dataset.idx)}));
@@ -241,7 +250,9 @@
 
         function setTool(t) {
             currentTool = t;
-            document.querySelectorAll('.tool-btn').forEach(b => { if(b.id !== 'btn-grid') b.classList.remove('active'); });
+            document.querySelectorAll('.tool-btn').forEach(b => { 
+                if(b.id !== 'btn-grid' && b.id !== 'btn-theme') b.classList.remove('active'); 
+            });
             document.getElementById('btn-' + t).classList.add('active');
         }
 
@@ -250,11 +261,26 @@
             document.getElementById('btn-grid').classList.toggle('active');
         }
 
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            const btn = document.getElementById('btn-theme');
+            btn.classList.toggle('active');
+        }
+
+        // キーボード操作
         window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
             const k = e.key.toLowerCase();
-            if (k === 'r') setTool('pen'); if (k === 'f') setTool('fill'); if (k === 'q') setTool('picker');
-            if (k === 'x') selectColor(0); if (k === 'a') selectColor(prevIdx); if (k === 'z') undo(); if (k === 'y') redo();
-            if (k === 'i') toggleGrid(); if (/[1-9]/.test(k)) selectColor(parseInt(k));
+            if (k === 'r') setTool('pen'); 
+            if (k === 'f') setTool('fill'); 
+            if (k === 'q') setTool('picker');
+            if (k === 'x') selectColor(0); 
+            if (k === 'a') selectColor(prevIdx); 
+            if (k === 'z') undo(); 
+            if (k === 'y') redo();
+            if (k === 'i') toggleGrid(); 
+            if (k === 'o') toggleTheme();
+            if (/[1-9]/.test(k)) selectColor(parseInt(k));
         });
 
         window.onmouseup = () => isDrawing = false;
