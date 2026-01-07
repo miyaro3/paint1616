@@ -101,12 +101,13 @@
         };
 
         let currentSpeed = 1; 
-        let endingSpeed = 1.5; 
+        let endingSpeed = 0.5; 
         let isEnding = false;  
         const ART_WIDTH = 80;
         const MARGIN = 50; 
         let activeArts = [];
         let bannedUsers = new Set();
+        let currentY = 10; 
         const userContainers = {};
 
         // エンディング用定数
@@ -122,19 +123,36 @@
             const userId = user.toLowerCase();
             if (bannedUsers.has(userId)) return;
 
-            if (command === "draw" && message) { createArt(user, message); }
-            
+            // 絵の描画コマンド
+// --- 修正箇所（118行目付近） ---
+if (command === "draw" && message) { 
+    const newArt = createArt(user, message); 
+    
+    // 追加：新しく作った絵の高さを、現在の配信設定(currentY)に強制的に合わせる
+    newArt.bottom = currentY;
+    newArt.el.style.bottom = currentY + 'px';
+
+    let displayCount = 0;
+    activeArts.forEach(art => {
+        if (art.left > -130) { 
+            displayCount++;
+        }
+    });
+    activeArts.splice(displayCount, 0, newArt);
+}
+            // エフェクトコマンド
             const effects = ["shake", "jump", "dance", "sparkle", "bomb"];
             if (effects.includes(command)) { applyEffect(userId, command); }
 
-            // 配信者専用
+            // 配信者専用コマンド
             if (flags.broadcaster) {
-                if (command === "end") {
-                    startEndingMode();
-                }
+                if (command === "end") startEndingMode();
+                if (command === "notend") stopEndingMode();
+                if (command === "head") setStagePosition("head");
+                if (command === "foot") setStagePosition("foot");
             }
 
-            // モデレーター以上
+            // モデレーター以上コマンド
             if (flags.broadcaster || flags.mod) {
                 const target = message ? message.replace('@', '').toLowerCase() : "";
                 if (command === "picclear") {
@@ -161,14 +179,53 @@
                 
                 art.left = col * END_COL_WIDTH + 10; 
                 art.el.style.left = art.left + 'px';
-                
-                // 下端(480px)より外側から順番に配置
                 art.bottom = -(END_ROW_HEIGHT + (row * END_ROW_HEIGHT)); 
                 art.el.style.bottom = art.bottom + 'px';
                 
                 art.grid.classList.remove('jump');
             });
         }
+
+function stopEndingMode() {
+    isEnding = false;
+    activeArts.forEach((art, index) => {
+        art.left = -(ART_WIDTH + MARGIN) * (index + 1);
+        // 固定値 10 ではなく currentY を使う
+        art.bottom = currentY; 
+        art.el.style.left = art.left + 'px';
+        art.el.style.bottom = art.bottom + 'px';
+        
+        // 跳ねる設定の修正（初ループのみ跳ねる）
+        if (art.isFirstLoop) {
+            art.grid.classList.add('jump');
+        } else {
+            art.grid.classList.remove('jump');
+        }
+    });
+}
+
+function setStagePosition(pos) {
+    // 次に新しく描画される絵の高さをここで更新する
+    currentY = (pos === "head") ? (480 - 150) : 10;
+    
+    isEnding = false;
+
+    activeArts.forEach((art, index) => {
+        // 全員の高さを現在の設定（currentY）に合わせる
+        art.bottom = currentY;
+        art.el.style.bottom = art.bottom + 'px';
+        
+        art.left = -(ART_WIDTH + MARGIN) * (index + 1);
+        art.el.style.left = art.left + 'px';
+        
+        // 未通過の絵だけ跳ねさせる設定に戻す場合
+        if (art.isFirstLoop) {
+            art.grid.classList.add('jump');
+        } else {
+            art.grid.classList.remove('jump');
+        }
+    });
+}
 
         function createArt(user, data) {
             const userId = user.toLowerCase();
@@ -210,18 +267,18 @@
                 grid: grid,
                 user: userId,
                 left: -(ART_WIDTH + MARGIN),
-                bottom: 10,
+                bottom: currentY, 
                 isFirstLoop: true
             };
 
-            activeArts.push(artObj);
             if (!userContainers[userId]) userContainers[userId] = [];
             userContainers[userId].push(artObj);
+            
+            return artObj;
         }
 
         function update() {
             if (!isEnding) {
-                // 通常モード
                 for (let i = 0; i < activeArts.length; i++) {
                     const art = activeArts[i];
                     let canMove = false;
@@ -249,25 +306,19 @@
                     finishedArt.el.style.left = finishedArt.left + 'px';
                     activeArts.push(finishedArt);
                 }
-		} else {
-                // エンディングモード（スタッフロール）
+            } else {
                 activeArts.forEach(art => {
                     art.bottom += endingSpeed;
                     art.el.style.bottom = art.bottom + 'px';
                 });
 
-                // --- 修正ポイント：ループ判定 ---
                 if (activeArts.length > 0) {
-                    // 配列の最後（一番下）の要素を取得
                     const lastArt = activeArts[activeArts.length - 1];
-                    
-                    // 最後の絵の bottom が「画面の高さ(480px) + 余白」を超えたらリセット
-                    // これにより、全ての絵が画面上端へ消えるまで表示が維持されます
                     const screenHeight = 480;
-                    const waitMargin = END_ROW_HEIGHT * 1; // 4列分の余白
+                    const waitMargin = END_ROW_HEIGHT * 1; 
                     
                     if (lastArt.bottom > screenHeight + waitMargin) {
-                        startEndingMode(); // 最初からリセットしてループ
+                        startEndingMode(); 
                     }
                 }
             }
