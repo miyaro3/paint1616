@@ -24,6 +24,12 @@
             will-change: left, bottom;
         }
 
+        /* 星演出用のコンテナ（クリック等を邪魔しないよう設定） */
+        .star-container {
+            pointer-events: none;
+            z-index: 100;
+        }
+
         .pixel-grid {
             display: grid; 
             grid-template-columns: repeat(16, 5px); 
@@ -106,6 +112,7 @@
         const ART_WIDTH = 80;
         const MARGIN = 50; 
         let activeArts = [];
+        let starArts = []; // !star演出専用の独立した配列
         let bannedUsers = new Set();
         let currentY = 10; 
         const userContainers = {};
@@ -124,36 +131,46 @@
             if (bannedUsers.has(userId)) return;
 
             // 絵の描画コマンド
-// --- 修正箇所（118行目付近） ---
-if (command === "draw" && message) { 
-    const newArt = createArt(user, message); 
-    
-    // 追加：新しく作った絵の高さを、現在の配信設定(currentY)に強制的に合わせる
-    newArt.bottom = currentY;
-    newArt.el.style.bottom = currentY + 'px';
+            if (command === "draw" && message) { 
+                const newArt = createArt(user, message); 
+                newArt.bottom = currentY;
+                newArt.el.style.bottom = currentY + 'px';
 
-    let displayCount = 0;
-    activeArts.forEach(art => {
-        if (art.left > -130) { 
-            displayCount++;
-        }
-    });
-    activeArts.splice(displayCount, 0, newArt);
-}
+                let displayCount = 0;
+                activeArts.forEach(art => {
+                    if (art.left > -130) { 
+                        displayCount++;
+                    }
+                });
+                activeArts.splice(displayCount, 0, newArt);
+            }
+
             // エフェクトコマンド
             const effects = ["shake", "jump", "dance", "sparkle", "bomb"];
             if (effects.includes(command)) { applyEffect(userId, command); }
 
-            // 配信者専用コマンド
-            if (flags.broadcaster) {
+            // 配信者・モデレーター専用コマンド
+            if (flags.broadcaster || flags.mod) {
                 if (command === "end") startEndingMode();
                 if (command === "notend") stopEndingMode();
                 if (command === "head") setStagePosition("head");
                 if (command === "foot") setStagePosition("foot");
-            }
 
-            // モデレーター以上コマンド
-            if (flags.broadcaster || flags.mod) {
+                // !star: 今ある絵のコピーを作成して画面全体に飛ばす
+                if (command === "star") {
+                    activeArts.forEach(art => {
+                        const cloneEl = art.el.cloneNode(true);
+                        cloneEl.classList.add('star-container');
+                        document.getElementById('stage').appendChild(cloneEl);
+                        
+                        starArts.push({
+                            el: cloneEl,
+                            left: -ART_WIDTH - Math.random() * 800,
+                            bottom: Math.floor(Math.random() * 400)
+                        });
+                    });
+                }
+
                 const target = message ? message.replace('@', '').toLowerCase() : "";
                 if (command === "picclear") {
                     removeUserArts(target);
@@ -186,46 +203,39 @@ if (command === "draw" && message) {
             });
         }
 
-function stopEndingMode() {
-    isEnding = false;
-    activeArts.forEach((art, index) => {
-        art.left = -(ART_WIDTH + MARGIN) * (index + 1);
-        // 固定値 10 ではなく currentY を使う
-        art.bottom = currentY; 
-        art.el.style.left = art.left + 'px';
-        art.el.style.bottom = art.bottom + 'px';
-        
-        // 跳ねる設定の修正（初ループのみ跳ねる）
-        if (art.isFirstLoop) {
-            art.grid.classList.add('jump');
-        } else {
-            art.grid.classList.remove('jump');
+        function stopEndingMode() {
+            isEnding = false;
+            activeArts.forEach((art, index) => {
+                art.left = -(ART_WIDTH + MARGIN) * (index + 1);
+                art.bottom = currentY; 
+                art.el.style.left = art.left + 'px';
+                art.el.style.bottom = art.bottom + 'px';
+                
+                if (art.isFirstLoop) {
+                    art.grid.classList.add('jump');
+                } else {
+                    art.grid.classList.remove('jump');
+                }
+            });
         }
-    });
-}
 
-function setStagePosition(pos) {
-    // 次に新しく描画される絵の高さをここで更新する
-    currentY = (pos === "head") ? (480 - 150) : 10;
-    
-    isEnding = false;
+        function setStagePosition(pos) {
+            currentY = (pos === "head") ? (480 - 150) : 10;
+            isEnding = false;
 
-    activeArts.forEach((art, index) => {
-        // 全員の高さを現在の設定（currentY）に合わせる
-        art.bottom = currentY;
-        art.el.style.bottom = art.bottom + 'px';
-        
-        art.left = -(ART_WIDTH + MARGIN) * (index + 1);
-        art.el.style.left = art.left + 'px';
-        
-        // 未通過の絵だけ跳ねさせる設定に戻す場合
-        if (art.isFirstLoop) {
-            art.grid.classList.add('jump');
-        } else {
-            art.grid.classList.remove('jump');
+            activeArts.forEach((art, index) => {
+                art.bottom = currentY;
+                art.el.style.bottom = art.bottom + 'px';
+                art.left = -(ART_WIDTH + MARGIN) * (index + 1);
+                art.el.style.left = art.left + 'px';
+                
+                if (art.isFirstLoop) {
+                    art.grid.classList.add('jump');
+                } else {
+                    art.grid.classList.remove('jump');
+                }
+            });
         }
-    });
-}
 
         function createArt(user, data) {
             const userId = user.toLowerCase();
@@ -278,6 +288,7 @@ function setStagePosition(pos) {
         }
 
         function update() {
+            // 1. パレードの移動（常に実行）
             if (!isEnding) {
                 for (let i = 0; i < activeArts.length; i++) {
                     const art = activeArts[i];
@@ -307,6 +318,7 @@ function setStagePosition(pos) {
                     activeArts.push(finishedArt);
                 }
             } else {
+                // エンディング移動
                 activeArts.forEach(art => {
                     art.bottom += endingSpeed;
                     art.el.style.bottom = art.bottom + 'px';
@@ -322,6 +334,21 @@ function setStagePosition(pos) {
                     }
                 }
             }
+
+            // 2. !star の独立した更新（4倍速で流して消滅）
+            for (let i = starArts.length - 1; i >= 0; i--) {
+                const s = starArts[i];
+                s.left += (currentSpeed * 4);
+                s.el.style.left = s.left + 'px';
+                s.el.style.bottom = s.bottom + 'px';
+                
+                // 右端を超えたら要素を削除
+                if (s.left > 852) {
+                    s.el.remove();
+                    starArts.splice(i, 1);
+                }
+            }
+
             requestAnimationFrame(update);
         }
         update();
