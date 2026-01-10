@@ -24,7 +24,7 @@
             will-change: left, bottom;
         }
 
-        /* 星演出用のコンテナ（クリック等を邪魔しないよう設定） */
+        /* 星演出用のコンテナ */
         .star-container {
             pointer-events: none;
             z-index: 100;
@@ -46,40 +46,21 @@
             text-shadow: 1px 1px 2px black, -1px -1px 2px black; white-space: nowrap;
         }
 
-        /* エフェクト機能 */
+        /* エフェクト */
         .shake { animation: shake 0.5s infinite; }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
         .jump { animation: jump 0.6s infinite ease-in-out; }
-        @keyframes jump {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
-        }
-
+        @keyframes jump { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
         .dance { animation: dance 0.8s infinite; }
-        @keyframes dance {
-            0%, 100% { transform: rotate(0deg) scale(1); }
-            25% { transform: rotate(10deg) scale(1.1); }
-            75% { transform: rotate(-10deg) scale(1.1); }
-        }
-
+        @keyframes dance { 0%, 100% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(10deg) scale(1.1); } 75% { transform: rotate(-10deg) scale(1.1); } }
         .sparkle::after {
             content: '✨'; position: absolute; top: -10px; left: -10px; width: 100px; height: 100px;
             display: flex; align-items: center; justify-content: center; font-size: 50px;
             animation: sparkle-anim 1s infinite; pointer-events: none;
         }
         @keyframes sparkle-anim { 0%, 100% { opacity: 0; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.3); } }
-
         .bomb { animation: bomb-anim 0.4s infinite; filter: contrast(2.5); }
-        @keyframes bomb-anim {
-            0% { transform: scale(1); filter: hue-rotate(0deg) brightness(1); }
-            50% { transform: scale(1.4); filter: hue-rotate(180deg) brightness(3); }
-            100% { transform: scale(1); filter: hue-rotate(360deg) brightness(1); }
-        }
+        @keyframes bomb-anim { 0% { transform: scale(1); filter: hue-rotate(0deg) brightness(1); } 50% { transform: scale(1.4); filter: hue-rotate(180deg) brightness(3); } 100% { transform: scale(1); filter: hue-rotate(360deg) brightness(1); } }
     </style>
 </head>
 <body>
@@ -106,18 +87,17 @@
             "f": ['transparent','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffffff','#808080','#800000','#008000','#000080','#808000','#800080','#444444','#000000']
         };
 
-        let currentSpeed = 2; 
+        let currentSpeed = 2; // デフォルトスピード
         let endingSpeed = 0.5; 
         let isEnding = false;  
         const ART_WIDTH = 80;
         const MARGIN = 50; 
         let activeArts = [];
-        let starArts = []; // !star演出専用の独立した配列
+        let starArts = []; 
         let bannedUsers = new Set();
         let currentY = 10; 
         const userContainers = {};
 
-        // エンディング用定数
         const END_COLUMNS = 6;
         const END_COL_WIDTH = 140;
         const END_ROW_HEIGHT = 150;
@@ -130,39 +110,63 @@
             const userId = user.toLowerCase();
             if (bannedUsers.has(userId)) return;
 
-            // 絵の描画コマンド
             if (command === "draw" && message) { 
                 const newArt = createArt(user, message); 
                 newArt.bottom = currentY;
                 newArt.el.style.bottom = currentY + 'px';
 
-                let displayCount = 0;
-                activeArts.forEach(art => {
-                    if (art.left > -130) { 
-                        displayCount++;
-                    }
-                });
-                activeArts.splice(displayCount, 0, newArt);
+// --- 修正後のロジック ---
+if (isEnding) {
+    activeArts.push(newArt);
+    const index = activeArts.length - 1;
+    
+    // 1. 列と行を正しく計算（6列を維持）
+    const col = index % END_COLUMNS; 
+    const row = Math.floor(index / END_COLUMNS); 
+    
+    // 2. 横位置を列番号に基づいて固定
+    newArt.left = col * END_COL_WIDTH + 10;
+    newArt.el.style.left = newArt.left + 'px';
+    
+    // 3. 縦位置の計算を修正
+    // 同じ行(row)の絵が既にある場合はその高さをコピー、ない場合は前の行のさらに下に配置
+    const sameRowReference = activeArts.find((art, idx) => 
+        idx < index && Math.floor(idx / END_COLUMNS) === row
+    );
+
+    if (sameRowReference) {
+        // 同じ行に既に絵があれば、その絵の現在の高さ(bottom)に合わせる
+        newArt.bottom = sameRowReference.bottom;
+    } else {
+        // 新しい行が必要な場合、一つ前の絵（一つ上のインデックス）からEND_ROW_HEIGHT分下げる
+        const prevArt = activeArts[index - 1];
+        newArt.bottom = prevArt ? prevArt.bottom - END_ROW_HEIGHT : -END_ROW_HEIGHT;
+    }
+    
+    newArt.el.style.bottom = newArt.bottom + 'px';
+    newArt.grid.classList.remove('jump');
+}else {
+                    // 通常パレード
+                    let displayCount = 0;
+                    activeArts.forEach(art => { if (art.left > -130) displayCount++; });
+                    activeArts.splice(displayCount, 0, newArt);
+                }
             }
 
-            // エフェクトコマンド
             const effects = ["shake", "jump", "dance", "sparkle", "bomb"];
             if (effects.includes(command)) { applyEffect(userId, command); }
 
-            // 配信者・モデレーター専用コマンド
             if (flags.broadcaster || flags.mod) {
                 if (command === "end") startEndingMode();
                 if (command === "notend") stopEndingMode();
                 if (command === "head") setStagePosition("head");
                 if (command === "foot") setStagePosition("foot");
 
-                // !star: 今ある絵のコピーを作成して画面全体に飛ばす
                 if (command === "star") {
                     activeArts.forEach(art => {
                         const cloneEl = art.el.cloneNode(true);
                         cloneEl.classList.add('star-container');
                         document.getElementById('stage').appendChild(cloneEl);
-                        
                         starArts.push({
                             el: cloneEl,
                             left: -ART_WIDTH - Math.random() * 800,
@@ -172,15 +176,8 @@
                 }
 
                 const target = message ? message.replace('@', '').toLowerCase() : "";
-                if (command === "picclear") {
-                    removeUserArts(target);
-                }
-                if (command === "picban") {
-                    if (target) {
-                        bannedUsers.add(target);
-                        removeUserArts(target);
-                    }
-                }
+                if (command === "picclear") removeUserArts(target);
+                if (command === "picban" && target) { bannedUsers.add(target); removeUserArts(target); }
                 if (command === "speed") {
                     const s = parseFloat(message);
                     if (s > 0) currentSpeed = s / 10;
@@ -193,12 +190,10 @@
             activeArts.forEach((art, index) => {
                 const col = index % END_COLUMNS;
                 const row = Math.floor(index / END_COLUMNS);
-                
                 art.left = col * END_COL_WIDTH + 10; 
                 art.el.style.left = art.left + 'px';
                 art.bottom = -(END_ROW_HEIGHT + (row * END_ROW_HEIGHT)); 
                 art.el.style.bottom = art.bottom + 'px';
-                
                 art.grid.classList.remove('jump');
             });
         }
@@ -210,30 +205,19 @@
                 art.bottom = currentY; 
                 art.el.style.left = art.left + 'px';
                 art.el.style.bottom = art.bottom + 'px';
-                
-                if (art.isFirstLoop) {
-                    art.grid.classList.add('jump');
-                } else {
-                    art.grid.classList.remove('jump');
-                }
+                if (art.isFirstLoop) art.grid.classList.add('jump');
             });
         }
 
         function setStagePosition(pos) {
-            currentY = (pos === "head") ? (480 - 150) : 10;
+            currentY = (pos === "head") ? (480 - 120) : 10;
             isEnding = false;
-
             activeArts.forEach((art, index) => {
                 art.bottom = currentY;
                 art.el.style.bottom = art.bottom + 'px';
                 art.left = -(ART_WIDTH + MARGIN) * (index + 1);
                 art.el.style.left = art.left + 'px';
-                
-                if (art.isFirstLoop) {
-                    art.grid.classList.add('jump');
-                } else {
-                    art.grid.classList.remove('jump');
-                }
+                if (art.isFirstLoop) art.grid.classList.add('jump');
             });
         }
 
@@ -242,13 +226,10 @@
             const palKey = data[0].toLowerCase();
             const colors = PALETTES[palKey] || PALETTES["0"];
             const pixelData = data.substring(1);
-
             const container = document.createElement('div');
             container.className = 'art-container';
-
             const grid = document.createElement('div');
             grid.className = 'pixel-grid jump';
-
             let pCount = 0;
             for (let i = 0; i < pixelData.length; i += 2) {
                 const colorIdx = parseInt(pixelData[i], 16);
@@ -263,56 +244,32 @@
                     }
                 }
             }
-
             const nameTag = document.createElement('div');
             nameTag.className = 'user-name';
             nameTag.innerText = user;
-
             container.appendChild(grid);
             container.appendChild(nameTag);
             document.getElementById('stage').appendChild(container);
-
-            const artObj = {
-                el: container,
-                grid: grid,
-                user: userId,
-                left: -(ART_WIDTH + MARGIN),
-                bottom: currentY, 
-                isFirstLoop: true
-            };
-
+            const artObj = { el: container, grid: grid, user: userId, left: -(ART_WIDTH + MARGIN), bottom: currentY, isFirstLoop: true };
             if (!userContainers[userId]) userContainers[userId] = [];
             userContainers[userId].push(artObj);
-            
             return artObj;
         }
 
         function update() {
-            // 1. パレードの移動（常に実行）
             if (!isEnding) {
                 for (let i = 0; i < activeArts.length; i++) {
                     const art = activeArts[i];
-                    let canMove = false;
-                    if (i === 0) {
-                        canMove = true;
-                    } else {
-                        const prevArt = activeArts[i-1];
-                        if (prevArt.left > art.left + ART_WIDTH + MARGIN) {
-                            canMove = true;
-                        }
-                    }
+                    let canMove = (i === 0) || (activeArts[i-1].left > art.left + ART_WIDTH + MARGIN);
                     if (canMove) {
                         art.left += currentSpeed;
                         art.el.style.left = art.left + 'px';
                     }
                 }
-
                 if (activeArts.length > 0 && activeArts[0].left > 852) {
                     const finishedArt = activeArts.shift();
-                    if (finishedArt.isFirstLoop) {
-                        finishedArt.grid.classList.remove('jump');
-                        finishedArt.isFirstLoop = false;
-                    }
+                    finishedArt.isFirstLoop = false;
+                    finishedArt.grid.classList.remove('jump');
                     finishedArt.left = -(ART_WIDTH + MARGIN);
                     finishedArt.el.style.left = finishedArt.left + 'px';
                     activeArts.push(finishedArt);
@@ -323,32 +280,22 @@
                     art.bottom += endingSpeed;
                     art.el.style.bottom = art.bottom + 'px';
                 });
-
                 if (activeArts.length > 0) {
                     const lastArt = activeArts[activeArts.length - 1];
-                    const screenHeight = 480;
-                    const waitMargin = END_ROW_HEIGHT * 1; 
-                    
-                    if (lastArt.bottom > screenHeight + waitMargin) {
+                    if (lastArt.bottom > 480 + 50) { 
                         startEndingMode(); 
                     }
                 }
             }
 
-            // 2. !star の独立した更新（4倍速で流して消滅）
+            // !star 更新
             for (let i = starArts.length - 1; i >= 0; i--) {
                 const s = starArts[i];
                 s.left += (currentSpeed * 4);
                 s.el.style.left = s.left + 'px';
                 s.el.style.bottom = s.bottom + 'px';
-                
-                // 右端を超えたら要素を削除
-                if (s.left > 852) {
-                    s.el.remove();
-                    starArts.splice(i, 1);
-                }
+                if (s.left > 852) { s.el.remove(); starArts.splice(i, 1); }
             }
-
             requestAnimationFrame(update);
         }
         update();
@@ -374,5 +321,4 @@
         }
     </script>
 </body>
-
 </html>
