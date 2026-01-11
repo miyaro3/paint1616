@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>miyaro paint - Setup Guide</title>
+    <title>MiRoDot - Setup Guide</title>
     <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #e0e0e0; background: #121212; margin: 0; padding: 40px 20px; }
         .container { max-width: 900px; margin: 0 auto; background: #1e1e1e; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
@@ -25,6 +25,7 @@
         code { background: #000; color: #ff79c6; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
 
         .obs-list { background: #1a2a3a; padding: 20px; border-radius: 8px; border-left: 5px solid #3498db; }
+        .tag-request { background: #3a1a3a; padding: 20px; border-radius: 8px; border-left: 5px solid #9146ff; margin: 30px 0; text-align: center; }
         .note { color: #ffa500; font-size: 0.9em; margin-top: 5px; }
         .important { color: #ff4444; font-weight: bold; }
     </style>
@@ -32,7 +33,7 @@
 <body>
 
 <div class="container">
-    <h1>miyaro paint Setup Guide</h1>
+    <h1>MiRoDot Setup Guide</h1>
 
     <div class="setup-section">
         <h3>1. TwitchチャンネルIDを入力</h3>
@@ -44,21 +45,21 @@
     
     <p><strong>【OBS用】表示オーバーレイ URL</strong><br><small>OBSの「ブラウザソース」に追加してください。</small></p>
     <div class="url-box">
-        <span class="url-text" id="showURL">https://your-username.github.io/miyaro-paint/show.html?channel=</span>
+        <span class="url-text" id="showURL">https://your-username.github.io/miro-dot/show.html?channel=</span>
         <button class="btn-copy" onclick="copyText('showURL')">コピー</button>
     </div>
 
     <p><strong>【リスナー用】描画用エディタ URL</strong><br><small>配信概要欄や、チャットボット（!paint 等）に登録してください。</small></p>
     <div class="url-box">
-        <span class="url-text" id="editURL">https://your-username.github.io/miyaro-paint/paint.html</span>
+        <span class="url-text" id="editURL">https://your-username.github.io/miro-dot/paint.html</span>
         <button class="btn-copy" onclick="copyText('editURL')">コピー</button>
     </div>
 
     <h2>リスナー向けコマンド</h2>
-    <p>描画されたドット絵は通常時「左から右」へループ移動します。強調表示は5秒間継続します。</p>
+    <p>描画されたドット絵は通常時、画面下端（または上端）をループ移動します。エフェクトは5秒間継続します。</p>
     <table class="command-table">
         <tr><th>コマンド</th><th>内容</th></tr>
-        <tr><td><code>!draw [コード]</code></td><td>ドット絵を生成します。1周目はぴょんぴょん跳ねます。</td></tr>
+        <tr><td><code>!draw [コード]</code></td><td>ドット絵を生成します。最初の1周は跳ねながら登場します。</td></tr>
         <tr><td><code>!shake</code></td><td>5秒間、絵をガタガタ揺らします。</td></tr>
         <tr><td><code>!jump</code></td><td>5秒間、絵をぴょんぴょん跳ねさせます。</td></tr>
         <tr><td><code>!dance</code></td><td>5秒間、絵を楽しくダンスさせます。</td></tr>
@@ -69,11 +70,19 @@
     <h2>管理コマンド（配信者・モデレーター専用）</h2>
     <table class="command-table">
         <tr><th>コマンド</th><th>対象者</th><th>内容</th></tr>
-        <tr><td><code>!end</code></td><td><strong>配信者のみ</strong></td><td>スタッフロールを開始します。全作品を整列させ、下から上へスクロールします。</td></tr>
-        <tr><td><code>!speed [数値]</code></td><td>配信者/MOD</td><td>通常時の流れる速度を変更します。初期値は約10。</td></tr>
-        <tr><td><code>!picclear [ID]</code></td><td>配信者/MOD</td><td>指定したユーザーの絵をすべて消去します。</td></tr>
-        <tr><td><code>!picban [ID]</code></td><td>配信者/MOD</td><td>指定したユーザーの絵を消し、以降の投稿を禁止します。</td></tr>
+        <tr><td><code>!end</code></td><td>配信者/MOD</td><td>エンドロールを開始。全作品を整列させ下から上へスクロールします。</td></tr>
+        <tr><td><code>!notend</code></td><td>配信者/MOD</td><td>エンドロールを終了し、通常のパレードに戻ります。</td></tr>
+        <tr><td><code>!head</code></td><td>配信者/MOD</td><td>パレード位置を画面上端（頭上）に変更します。</td></tr>
+        <tr><td><code>!foot</code></td><td>配信者/MOD</td><td>パレード位置を画面下端（足元）に戻します。</td></tr>
+        <tr><td><code>!star</code></td><td>配信者/MOD</td><td>現在表示されている全作品のコピーが星のように画面を横切ります。</td></tr>
+        <tr><td><code>!speed [数値]</code></td><td>配信者/MOD</td><td>パレードの流れる速度を変更します。</td></tr>
+        <tr><td><code>!picclear [名前]</code></td><td>配信者/MOD</td><td>指定ユーザー（Twitch名）の絵をすべて消去します。</td></tr>
+        <tr><td><code>!picban [名前]</code></td><td>配信者/MOD</td><td>指定ユーザーの絵を消去し、以降の投稿を禁止します。</td></tr>
     </table>
+
+    <div class="tag-request">
+        <p> <strong>お願い：</strong>Twitchタグへ <code>MiRoDot</code> を追加して頂けると嬉しいです。</p>
+    </div>
 
     <h2>OBS 推奨設定</h2>
     <div class="obs-list">
@@ -92,7 +101,6 @@
 <script>
     function generateURLs() {
         const channel = document.getElementById('channelInput').value.trim() || '[your_id]';
-        // 現在のディレクトリURLを取得して生成
         const baseUrl = window.location.href.split('guide.html')[0];
         document.getElementById('showURL').innerText = `${baseUrl}show.html?channel=${channel}`;
         document.getElementById('editURL').innerText = `${baseUrl}paint.html`;
@@ -111,7 +119,6 @@
             }, 1000);
         });
     }
-    // 初期化
     generateURLs();
 </script>
 
