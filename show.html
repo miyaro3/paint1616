@@ -221,55 +221,88 @@
             });
         }
 
-        function createArt(user, data) {
-            const userId = user.toLowerCase();
-            const palKey = data[0].toLowerCase();
-            const colors = PALETTES[palKey] || PALETTES["0"];
-            const pixelData = data.substring(1);
+function createArt(user, data) {
+    const userId = user.toLowerCase();
+    const palKey = data[0].toUpperCase(); // G判定のため大文字で取得
+    let colors = [];
+    let pixelData = "";
+    let isRawMode = false;
 
-            const container = document.createElement('div');
-            container.className = 'art-container';
+    // --- 1. データ解析（Gかそれ以外か） ---
+    if (palKey === 'G') {
+        // パレットG (完全データ形式): G + カラー96文字 + ピクセル256文字
+        isRawMode = true;
+        const colorPart = data.substring(1, 97); // 16色分のRRGGBB
+        pixelData = data.substring(97);           // 256文字のドットデータ
+        
+        // カラーコードを配列に変換
+        for (let i = 0; i < 16; i++) {
+            colors.push("#" + colorPart.substring(i * 6, i * 6 + 6));
+        }
+    } else {
+        // 既存の圧縮形式 (0-fパレット)
+        colors = PALETTES[data[0].toLowerCase()] || PALETTES["0"];
+        pixelData = data.substring(1);
+    }
 
-            const grid = document.createElement('div');
-            grid.className = 'pixel-grid jump';
+    // --- 2. HTML要素の作成 ---
+    const container = document.createElement('div');
+    container.className = 'art-container';
+    const grid = document.createElement('div');
+    grid.className = 'pixel-grid jump';
 
-            let pCount = 0;
-            for (let i = 0; i < pixelData.length; i += 2) {
-                const colorIdx = parseInt(pixelData[i], 16);
-                const repeat = parseInt(pixelData[i + 1], 16);
-                for (let r = 0; r < repeat; r++) {
-                    if (pCount < 256) {
-                        const px = document.createElement('div');
-                        px.className = 'px';
-                        px.style.backgroundColor = colors[colorIdx] || 'transparent';
-                        grid.appendChild(px);
-                        pCount++;
-                    }
+    // --- 3. ピクセル描画（デコード） ---
+    if (isRawMode) {
+        // パレットG用の描画 (1文字 = 1ピクセル / 圧縮なし)
+        for (let i = 0; i < 256; i++) {
+            const colorIdx = parseInt(pixelData[i], 16);
+            const px = document.createElement('div');
+            px.className = 'px';
+            // 0番は常に「透明」として扱う
+            px.style.backgroundColor = (colorIdx === 0) ? 'transparent' : colors[colorIdx];
+            grid.appendChild(px);
+        }
+    } else {
+        // 既存のランレングス圧縮デコード
+        let pCount = 0;
+        for (let i = 0; i < pixelData.length; i += 2) {
+            const colorIdx = parseInt(pixelData[i], 16);
+            const repeat = parseInt(pixelData[i + 1], 16);
+            for (let r = 0; r < repeat; r++) {
+                if (pCount < 256) {
+                    const px = document.createElement('div');
+                    px.className = 'px';
+                    px.style.backgroundColor = colors[colorIdx] || 'transparent';
+                    grid.appendChild(px);
+                    pCount++;
                 }
             }
-
-            const nameTag = document.createElement('div');
-            nameTag.className = 'user-name';
-            nameTag.innerText = user;
-
-            container.appendChild(grid);
-            container.appendChild(nameTag);
-            document.getElementById('stage').appendChild(container);
-
-            const artObj = {
-                el: container,
-                grid: grid,
-                user: userId,
-                left: -(ART_WIDTH + MARGIN),
-                bottom: currentY, 
-                isFirstLoop: true
-            };
-
-            if (!userContainers[userId]) userContainers[userId] = [];
-            userContainers[userId].push(artObj);
-            
-            return artObj;
         }
+    }
+
+// --- 4. 共通処理（名前タグなど） ---
+    const nameTag = document.createElement('div');
+    nameTag.className = 'user-name';
+    nameTag.innerText = user;
+
+    container.appendChild(grid);
+    container.appendChild(nameTag);
+    document.getElementById('stage').appendChild(container);
+
+    const artObj = {
+        el: container,
+        grid: grid,
+        user: userId,
+        left: -(ART_WIDTH + MARGIN),
+        bottom: currentY,
+        isFirstLoop: true
+    };
+
+if (!userContainers[userId]) userContainers[userId] = [];
+    userContainers[userId].push(artObj);
+    
+    return artObj;
+}
 
         function update() {
             if (!isEnding) {

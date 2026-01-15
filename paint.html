@@ -79,7 +79,48 @@
         .btn-save { background: #2ecc71; width: 200px; }
         .btn-save:hover { background: #27ae60; }
 
-        @media (min-width: 600px) {
+/* 右側パネルを縦に並べる設定 */
+.side-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.color-edit-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    background: #1e1e1e;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    width: 64px;
+    box-sizing: border-box;
+}
+
+body.light-mode .color-edit-panel {
+    background: #e0e0e0;
+    border-color: #bbb;
+}
+
+.panel-label { font-size: 9px; color: #888; }
+#current-hex { font-size: 10px; font-family: monospace; color: #9146ff; font-weight: bold; }
+
+.btn-color-edit { width: 100%; padding: 5px 0 !important; font-size: 11px !important; }
+
+/* リセットボタンの独自スタイル */
+.btn-reset {
+    width: 100%;
+    padding: 3px 0 !important;
+    font-size: 10px !important;
+    background: #444 !important;
+    border: 1px solid #555 !important;
+    margin-top: 2px;
+}
+
+#color-input { visibility: hidden; width: 0; height: 0; position: absolute; }        @media (min-width: 600px) {
             .grid-container { width: 352px; height: 352px; }
             .palette, .palette-selector { width: 580px; }
             textarea, .save-section { width: 480px; }
@@ -95,13 +136,23 @@
         <div id="btn-theme" class="tool-btn" onclick="toggleTheme()">背景 [O]</div>
     </div>
 
-    <div class="editor-layout">
-        <div class="grid-container"><div id="grid"></div></div>
+<div class="editor-layout">
+    <div class="grid-container"><div id="grid"></div></div>
+
+    <div class="side-controls">
         <div class="preview-pane">
             <div id="preview" class="preview-box"></div>
         </div>
-    </div>
 
+<div class="color-edit-panel">
+    <div class="panel-label">色変更</div>
+    <div id="current-hex">#FFFFFF</div>
+    <button class="tool-btn btn-color-edit" onclick="openColorPicker()">変更</button>
+    <button class="tool-btn btn-reset" onclick="resetCurrentPalette()" style="background: #555; margin-top: 2px;">reset</button>
+    <input type="color" id="color-input" oninput="updateCurrentPaletteColor(this.value)">
+</div>
+    </div>
+</div>
     <div class="palette-selector" id="pal-selector"></div>
     <div class="palette" id="palette"></div>
     
@@ -145,6 +196,24 @@
             "ベリー": ['transparent','#5d001e','#9a1750','#ee4c7c','#ff66aa','#cc3366','#990033','#ffcccc','#ff99cc','#ffffff','#eeeeee','#cccccc','#999999','#444444','#222222','#000000'],
             "原色": ['transparent','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffffff','#808080','#800000','#008000','#000080','#808000','#800080','#444444','#000000']
         };
+const DEFAULT_PALETTES = JSON.parse(JSON.stringify(PALETTES));
+
+// --- 追加: LocalStorageから保存されたパレットを読み込む ---
+const savedPalettes = localStorage.getItem('mirodot_palettes');
+if (savedPalettes) {
+    try {
+        const parsed = JSON.parse(savedPalettes);
+        // 保存されているパレットデータで現在のPALETTESを上書き
+        Object.assign(PALETTES, parsed);
+    } catch (e) {
+        console.error("パレットデータの読み込みに失敗しました", e);
+    }
+}
+
+// --- 追加: パレットの状態をLocalStorageに保存する関数 ---
+function savePalettesToLocal() {
+    localStorage.setItem('mirodot_palettes', JSON.stringify(PALETTES));
+}
 
         let currentPalKey = "基本";
         let selectedIdx = 1;
@@ -234,6 +303,57 @@
         });
 
         function selectColor(index) { prevIdx = selectedIdx; selectedIdx = index; renderPalette(); }
+// カラーピッカーを開く
+function openColorPicker() {
+    if (selectedIdx === 0) {
+        alert("透明枠（×）の色は変更できません。他の色を選択してください。");
+        return;
+    }
+    const colorInput = document.getElementById('color-input');
+    const currentColor = PALETTES[currentPalKey][selectedIdx];
+    colorInput.value = currentColor;
+    colorInput.click(); // 隠れたinputをプログラムからクリック
+}
+
+// パレットの色を更新する
+function updateCurrentPaletteColor(hex) {
+    if (selectedIdx === 0) return;
+    
+    saveHistory(); // 変更前に履歴に保存
+    
+    // 現在のパレット配列の指定の色を上書き
+    PALETTES[currentPalKey][selectedIdx] = hex;
+    
+    // UIを更新
+    document.getElementById('current-hex').innerText = hex.toUpperCase();
+    refreshColors(); // グリッドとプレビューの再描画
+    savePalettesToLocal(); // ★ここに追加：LocalStorageに保存
+}
+
+
+// 3. 【リセット機能】選択中のパレットをデフォルトの色に戻す
+function resetCurrentPalette() {
+    if (confirm(`パレット「${currentPalKey}」を初期の色に戻しますか？`)) {
+        saveHistory();
+        
+        // 保存しておいた DEFAULT_PALETTES から現在のパレットの配列をコピーして戻す
+        PALETTES[currentPalKey] = [...DEFAULT_PALETTES[currentPalKey]];
+        
+        // UIの表示（Hexコード）を現在の選択色に合わせて更新
+        const hex = PALETTES[currentPalKey][selectedIdx];
+        document.getElementById('current-hex').innerText = (selectedIdx === 0) ? "TRANS" : hex.toUpperCase();
+        
+        refreshColors(); // 全体を再描画
+        savePalettesToLocal(); // ★ここに追加：保存（リセットした状態を保存）
+    }
+}
+// 元の selectColor 関数を少し拡張して、現在の16進数を表示するようにする
+const originalSelectColor = selectColor;
+selectColor = function(index) {
+    originalSelectColor(index);
+    const hex = PALETTES[currentPalKey][index];
+    document.getElementById('current-hex').innerText = (index === 0) ? "TRANSPARENT" : hex.toUpperCase();
+};
 
         function saveHistory() {
             undoStack.push(JSON.stringify({pal: currentPalKey, data: cells.map(c => c.dataset.idx)}));
@@ -315,23 +435,36 @@
             if(confirm("すべて消去しますか？")) { saveHistory(); cells.forEach(c => c.dataset.idx = "0"); refreshColors(); }
         }
 
-        function generateCode() {
-            const data = cells.map(c => parseInt(c.dataset.idx));
-            let lastImportant = -1;
-            for(let i=0; i<256; i++) if(data[i] !== 0) lastImportant = i;
-            let compressed = "";
-            const keys = Object.keys(PALETTES);
-            const palIdx = keys.indexOf(currentPalKey).toString(16);
-            for (let i = 0; i <= lastImportant; i++) {
-                let count = 1;
-                while (i + 1 <= lastImportant && data[i] === data[i+1] && count < 15) { count++; i++; }
-                compressed += data[i].toString(16) + count.toString(16);
-            }
-            const finalCode = "!draw " + palIdx + compressed;
-            document.getElementById('output').value = finalCode;
-            navigator.clipboard.writeText(finalCode).then(() => alert("コピーしました！"));
-        }
+function generateCode() {
+            // 現在選択されているパレットの色情報を取得 (16色分)
+            const currentColors = PALETTES[currentPalKey];
+            let colorData = "";
+            
+            currentColors.forEach(c => {
+                if (c === 'transparent') {
+                    // 透明枠は黒(000000)として送る（表示側で0番を透明処理するため）
+                    colorData += "000000";
+                } else {
+                    // #を取り除いてRRGGBBの6文字にする
+                    colorData += c.replace('#', '').toLowerCase();
+                }
+            });
 
+            // 256ピクセルの色インデックス(0-f)をそのまま連結（圧縮なし）
+            const pixelData = cells.map(c => parseInt(c.dataset.idx).toString(16)).join('');
+
+            // フォーマット: !draw + G + カラー96文字 + ピクセル256文字
+            const finalCode = "!draw G" + colorData + pixelData;
+
+            document.getElementById('output').value = finalCode;
+            
+            // クリップボードにコピー
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(finalCode).then(() => {
+                    alert("!drawコードをコピーしました！");
+                });
+            }
+        }
         /* --- PNGダウンロード機能 --- */
         function downloadPNG() {
             const scale = parseInt(document.querySelector('input[name="scale"]:checked').value);
@@ -368,5 +501,4 @@
         renderPalette();
     </script>
 </body>
-
 </html>
