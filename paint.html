@@ -454,14 +454,14 @@ function generateCode() {
             const pixelData = cells.map(c => parseInt(c.dataset.idx).toString(16)).join('');
 
             // フォーマット: !draw + G + カラー96文字 + ピクセル256文字
-            const finalCode = "!draw G" + colorData + pixelData;
+            const finalCode = "!mirodot G" + colorData + pixelData;
 
             document.getElementById('output').value = finalCode;
             
             // クリップボードにコピー
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(finalCode).then(() => {
-                    alert("!drawコードをコピーしました！");
+                    alert("!MiRoDotコードをコピーしました！");
                 });
             }
         }
