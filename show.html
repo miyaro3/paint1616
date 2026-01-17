@@ -223,23 +223,57 @@
 
 function createArt(user, data) {
     const userId = user.toLowerCase();
-    const palKey = data[0].toUpperCase(); // G判定のため大文字で取得
-    let colors = [];
-    let pixelData = "";
-    let isRawMode = false;
+    const palKey = data[0].toUpperCase();
+    
+    // --- 新設・移動 ---
+    let colors = [];          // Gの中から外へ移動
+    let decodedPixels = [];   // 新設：IとGの共通ピクセルデータ格納用
+    let isRawMode = false;    // 既存
+    let pixelData = "";       // 既存
 
-    // --- 1. データ解析（Gかそれ以外か） ---
-    if (palKey === 'G') {
-        // パレットG (完全データ形式): G + カラー96文字 + ピクセル256文字
+    if (palKey === 'I') {
+        // --- 新形式 I (可変パレット + ランレングス圧縮) ---
         isRawMode = true;
-        const colorPart = data.substring(1, 97); // 16色分のRRGGBB
-        pixelData = data.substring(97);           // 256文字のドットデータ
+        const colorCount = parseInt(data[1], 16); 
+        colors.push("transparent"); // 0番は透明固定
         
-        // カラーコードを配列に変換
+        const colorPart = data.substring(2, 2 + (colorCount * 6));
+        for (let i = 0; i < colorCount; i++) {
+            colors.push("#" + colorPart.substring(i * 6, i * 6 + 6));
+        }
+        while (colors.length < 16) colors.push("#000000");
+
+        const rawPixelPart = data.substring(2 + (colorCount * 6));
+        let p = 0;
+        // decodedPixels に数値として展開して G形式と共通化する
+        while (decodedPixels.length < 256 && p < rawPixelPart.length) {
+            const char = rawPixelPart[p];
+            const code = char.charCodeAt(0);
+            if (code >= 103 && code <= 117) { // g-u
+                const count = code - 101;
+                const cIdx = parseInt(rawPixelPart[p + 1] || "0", 16);
+                for (let c = 0; c < count; c++) {
+                    if (decodedPixels.length < 256) decodedPixels.push(cIdx);
+                }
+                p += 2;
+            } else {
+                decodedPixels.push(parseInt(char, 16));
+                p++;
+            }
+        }
+}  else if (palKey === 'G') { // else if にする
+        isRawMode = true;
+        const colorPart = data.substring(1, 97);
+        const pixelPart = data.substring(97);
         for (let i = 0; i < 16; i++) {
             colors.push("#" + colorPart.substring(i * 6, i * 6 + 6));
         }
-    } else {
+        // G形式の文字データを decodedPixels(数値配列) に変換して共通化
+        for (let i = 0; i < 256; i++) {
+            decodedPixels.push(parseInt(pixelPart[i] || "0", 16));
+        }
+    }
+ else {
         // 既存の圧縮形式 (0-fパレット)
         colors = PALETTES[data[0].toLowerCase()] || PALETTES["0"];
         pixelData = data.substring(1);
@@ -252,14 +286,14 @@ function createArt(user, data) {
     grid.className = 'pixel-grid jump';
 
     // --- 3. ピクセル描画（デコード） ---
-    if (isRawMode) {
-        // パレットG用の描画 (1文字 = 1ピクセル / 圧縮なし)
+if (isRawMode) {
+        // I形式とG形式はここを通る
         for (let i = 0; i < 256; i++) {
-            const colorIdx = parseInt(pixelData[i], 16);
+            const colorIdx = decodedPixels[i]; // decodedPixelsを使用
             const px = document.createElement('div');
             px.className = 'px';
-            // 0番は常に「透明」として扱う
-            px.style.backgroundColor = (colorIdx === 0) ? 'transparent' : colors[colorIdx];
+            // 0番、または色が未定義なら透明
+            px.style.backgroundColor = (colorIdx === 0 || !colors[colorIdx]) ? 'transparent' : colors[colorIdx];
             grid.appendChild(px);
         }
     } else {
