@@ -436,35 +436,77 @@ selectColor = function(index) {
         }
 
 function generateCode() {
-            // 現在選択されているパレットの色情報を取得 (16色分)
-            const currentColors = PALETTES[currentPalKey];
-            let colorData = "";
-            
-            currentColors.forEach(c => {
-                if (c === 'transparent') {
-                    // 透明枠は黒(000000)として送る（表示側で0番を透明処理するため）
-                    colorData += "000000";
-                } else {
-                    // #を取り除いてRRGGBBの6文字にする
-                    colorData += c.replace('#', '').toLowerCase();
-                }
-            });
+    // 1. 使用されている色の抽出（0:透明以外）
+    const usedIndices = [...new Set(cells.map(c => parseInt(c.dataset.idx)))].filter(idx => idx > 0);
 
-            // 256ピクセルの色インデックス(0-f)をそのまま連結（圧縮なし）
-            const pixelData = cells.map(c => parseInt(c.dataset.idx).toString(16)).join('');
+    if (usedIndices.length === 0) {
+        alert("絵が描かれていません（すべて透明です）。");
+        return;
+    }
 
-            // フォーマット: !draw + G + カラー96文字 + ピクセル256文字
-            const finalCode = "!mirodot G" + colorData + pixelData;
+    // 2. インデックスのリマッピング（詰め直し）用マップを作成
+    // mapping[旧インデックス] = 新インデックス(1〜)
+    const mapping = { 0: 0 }; 
+    let colorData = "";
+    usedIndices.sort((a, b) => a - b).forEach((oldIdx, i) => {
+        const newIdx = i + 1;
+        mapping[oldIdx] = newIdx;
+        
+        // パレットデータの生成
+        const color = PALETTES[currentPalKey][oldIdx] || "#000000";
+        colorData += color.replace('#', '').toLowerCase();
+    });
 
-            document.getElementById('output').value = finalCode;
-            
-            // クリップボードにコピー
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(finalCode).then(() => {
-                    alert("!MiRoDotコードをコピーしました！");
-                });
-            }
+    // 使用するパレットの最大数（1〜f）
+    const colorCountHex = usedIndices.length.toString(16);
+
+    // 3. ピクセルデータの抽出（リマップ適用後）
+    let pixels = cells.map(c => mapping[parseInt(c.dataset.idx)]);
+    
+    // 末尾の連続する 0 (透明) を削除
+    let lastNonZeroIndex = -1;
+    for (let i = pixels.length - 1; i >= 0; i--) {
+        if (pixels[i] !== 0) {
+            lastNonZeroIndex = i;
+            break;
         }
+    }
+    if (lastNonZeroIndex !== -1) {
+        pixels = pixels.slice(0, lastNonZeroIndex + 1);
+    }
+
+    // 4. ピクセルデータの生成（ランレングス圧縮）
+    let pixelData = "";
+    let i = 0;
+    while (i < pixels.length) {
+        let count = 1;
+        const colorIdx = pixels[i];
+        const colorHex = colorIdx.toString(16);
+
+        while (count < 16 && i + count < pixels.length && pixels[i + count] === colorIdx) {
+            count++;
+        }
+
+        if (count >= 2) {
+            const charCode = 101 + count; // g(2)〜u(16)
+            pixelData += String.fromCharCode(charCode) + colorHex;
+            i += count;
+        } else {
+            pixelData += colorHex;
+            i++;
+        }
+    }
+
+    // 5. 最終的なコードの組み立て
+    const finalCode = "!mirodot I" + colorCountHex + colorData + pixelData;
+
+    document.getElementById('output').value = finalCode;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(finalCode).then(() => {
+            alert("!MiRoDotコードを生成・コピーしました！");
+        });
+    }
+}
         /* --- PNGダウンロード機能 --- */
         function downloadPNG() {
             const scale = parseInt(document.querySelector('input[name="scale"]:checked').value);
