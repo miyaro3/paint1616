@@ -79,6 +79,16 @@
         .btn-save { background: #2ecc71; width: 200px; }
         .btn-save:hover { background: #27ae60; }
 
+
+        .slot-unit { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+        .btn-save-action { width: 100%; background: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 12px; padding: 2px 0; border-radius: 3px; }
+        .btn-save-action:hover { background: #9146ff; }
+        .btn-load-preview { 
+            width: 58px; height: 58px; background: #000; border: 1px solid #555; 
+            display: grid; grid-template-columns: repeat(16, 1fr); cursor: pointer; padding: 0; border-radius: 2px; overflow: hidden;
+        }
+        .spx { width: 100%; height: 100%; } /* スロット内ドット用 */
+
 /* 右側パネルを縦に並べる設定 */
 .side-controls {
     display: flex;
@@ -164,7 +174,15 @@ body.light-mode .color-edit-panel {
     </div>
     
     <textarea id="output" readonly placeholder="ここにコードが生成されます"></textarea>
-
+<div id="save-manager" style="width: 320px; margin: 15px 0; background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; box-sizing: border-box;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <button onclick="changePage(-1)" style="padding: 2px 8px; background: #444; border: 1px solid #666; color: white; cursor: pointer;">◀</button>
+        <span id="page-display" style="font-size: 12px; font-weight: bold; color: #9146ff;">PAGE 1</span>
+        <button onclick="changePage(1)" style="padding: 2px 8px; background: #444; border: 1px solid #666; color: white; cursor: pointer;">▶</button>
+    </div>
+    <div id="slot-list" style="display: flex; justify-content: space-between; gap: 4px;">
+        </div>
+</div>
     <div class="save-section">
         <div class="save-options">
             <span>倍率:</span>
@@ -541,6 +559,88 @@ function generateCode() {
         }
 
         renderPalette();
+
+        let currentSlotPage = 1;
+        const SLOTS_COUNT = 5;
+
+        function updateSlotUI() {
+            const list = document.getElementById('slot-list');
+            const pageDisp = document.getElementById('page-display');
+            list.innerHTML = '';
+            pageDisp.innerText = `Save Slot PAGE ${currentSlotPage}`;
+
+            for (let i = 0; i < SLOTS_COUNT; i++) {
+                const slotId = (currentSlotPage - 1) * SLOTS_COUNT + i;
+                const savedRaw = localStorage.getItem(`mirodot_save_${slotId}`);
+                const data = savedRaw ? JSON.parse(savedRaw) : null;
+
+                const unit = document.createElement('div');
+                unit.className = 'slot-unit';
+
+                // ロードボタン（16x16プレビュー）
+                const loadBtn = document.createElement('button');
+                loadBtn.className = 'btn-load-preview';
+                loadBtn.title = `スロット ${slotId + 1} をロード`;
+                loadBtn.onclick = () => data && loadSlot(slotId);
+
+                if (data) {
+                    data.pixels.forEach(idx => {
+                        const px = document.createElement('div');
+                        px.className = 'spx';
+                        const c = data.palette[idx];
+                        px.style.backgroundColor = (c === 'transparent' ? 'transparent' : c);
+                        loadBtn.appendChild(px);
+                    });
+                } else {
+                    loadBtn.innerHTML = '<div style="font-size:8px; color:#444; margin:auto;">EMPTY</div>';
+                }
+
+                // セーブボタン
+                const saveBtn = document.createElement('button');
+                saveBtn.className = 'btn-save-action';
+                saveBtn.innerText = '↑';
+                saveBtn.title = `スロット ${slotId + 1} にセーブ`;
+                saveBtn.onclick = () => saveSlot(slotId);
+
+                unit.appendChild(loadBtn);
+                unit.appendChild(saveBtn);
+                list.appendChild(unit);
+            }
+        }
+
+        function changePage(dir) {
+            currentSlotPage = Math.max(1, currentSlotPage + dir);
+            updateSlotUI();
+        }
+
+        function saveSlot(id) {
+            const saveData = {
+                palette: [...PALETTES[currentPalKey]],
+                pixels: cells.map(c => c.dataset.idx),
+                palKey: currentPalKey
+            };
+            localStorage.setItem(`mirodot_save_${id}`, JSON.stringify(saveData));
+            updateSlotUI();
+        }
+
+        function loadSlot(id) {
+            const savedRaw = localStorage.getItem(`mirodot_save_${id}`);
+            if (!savedRaw || !confirm("スロットデータをロードしますか？")) return;
+            
+            saveHistory(); // 戻るボタン用に現在の状態を保存
+            const data = JSON.parse(savedRaw);
+            currentPalKey = data.palKey;
+            PALETTES[currentPalKey] = data.palette;
+            data.pixels.forEach((idx, i) => { cells[i].dataset.idx = idx; });
+
+            // パレットボタンのactive表示を更新
+            document.querySelectorAll('.pal-btn').forEach(b => b.classList.toggle('active', b.innerText === currentPalKey));
+            
+            refreshColors();
+        }
+
+        // ページ読み込み時に実行
+        updateSlotUI();
     </script>
 </body>
 </html>
